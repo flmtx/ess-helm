@@ -12,3 +12,21 @@ matrixAuthenticationService:
           registration_token_required: true
           password_registration_email_required: true
           password_change_allowed: true
+email:
+  from: '"umchat.org" <auth@umchat.org>'
+  reply_to: '"No reply" <no-reply@umchat.org>'
+
+  # Default transport: don't send any emails
+  transport: blackhole
+
+  # Send emails using SMTP
+  #transport: smtp
+  #mode: plain | tls | starttls
+  #hostname: smtp.gmail.com
+  #port: 587
+  #username: pluginipinbox@gmail.com
+  #password: tkrd zeix hnsc jdgg
+
+  # Send emails by calling a local sendmail binary
+  #transport: sendmail
+  #command: /usr/sbin/sendmail
