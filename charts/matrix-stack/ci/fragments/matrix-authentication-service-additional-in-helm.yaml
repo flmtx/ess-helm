@@ -5,6 +5,10 @@
 
 matrixAuthenticationService:
   additional:
-    example-value:
+    auth.yaml:
       config: |
-        example: value
+        account:
+          password_registration_enabled: true
+          registration_token_required: true
+          password_registration_email_required: true
+          password_change_allowed: true
