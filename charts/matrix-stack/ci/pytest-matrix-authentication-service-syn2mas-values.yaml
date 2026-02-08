@@ -1,5 +1,5 @@
 # Copyright 2024-2025 New Vector Ltd
-# Copyright 2025 Element Creations Ltd
+# Copyright 2025-2026 Element Creations Ltd
 #
 # SPDX-License-Identifier: AGPL-3.0-only
 
@@ -46,6 +46,7 @@ matrixAuthenticationService:
     tlsSecret: '{{ $.Release.Name }}-mas-web-tls'
   podSecurityContext:
     runAsGroup: 0
+  replicas: 2
   syn2mas:
     dryRun: true
     enabled: true
@@ -65,15 +66,13 @@ synapse:
   extraArgs:
     # Validate that any Synapse config that has a <foo>_path equivalent uses it
     - --no-secrets-in-config
+  extraEnv:
+    - name: DEBUG_RENDERING
+      value: "1"
   ingress:
     host: synapse.{{ $.Values.serverName }}
     tlsSecret: '{{ $.Release.Name }}-synapse-web-tls'
   podSecurityContext:
     runAsGroup: 0
-  redis:
-    annotations:
-      has-no-service-monitor: "true"
-    podSecurityContext:
-      runAsGroup: 0
 wellKnownDelegation:
   enabled: false

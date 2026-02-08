@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Copyright 2025 New Vector Ltd
-# Copyright 2025 Element Creations Ltd
+# Copyright 2025-2026 Element Creations Ltd
 #
 # SPDX-License-Identifier: AGPL-3.0-only
 
@@ -13,12 +13,13 @@ shopt -s nullglob
 scripts_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 values_file_root=$( cd "$scripts_dir/../charts/matrix-stack/ci" &> /dev/null && pwd )
 user_values_file_root=$( cd "$scripts_dir/../charts/matrix-stack/user_values" &> /dev/null && pwd )
+extra_values_file_root=$( cd "$scripts_dir/../charts/matrix-stack/ci_extra" &> /dev/null && pwd )
 values_file_prefix="${1:-*}"
 
 [ ! -d "$values_file_root" ] && echo "$values_file_root must be a directory that exists" 1>&2 && exit 1
 [ ! -d "$user_values_file_root" ] && echo "$user_values_file_root must be a directory that exists" 1>&2 && exit 1
 
-for values_file in "$values_file_root"/$values_file_prefix-values.yaml "$user_values_file_root"/$values_file_prefix-values.yaml; do
+for values_file in "$values_file_root"/$values_file_prefix-values.yaml "$user_values_file_root"/$values_file_prefix-values.yaml "$extra_values_file_root"/$values_file_prefix-values.yaml; do
   if [ "$values_file_prefix" != '*' ] &&  [ ! -e "$values_file" ]; then
     echo "$values_file_prefix-values.yaml doesn't exist in $(dirname "$values_file"). Skipping"
     continue
@@ -67,8 +68,7 @@ EOF
   yq -P "$yq_command" "$values_file_root/nothing-enabled-values.yaml" >> "$values_file"
 
   # REUSE-IgnoreStart
-  # Needs `-$(date +%Y)` on 2026
-  reuse annotate --copyright-prefix=string --year "2025" --copyright="Element Creations Ltd" --license "AGPL-3.0-only" "$values_file"
+  reuse annotate --copyright-prefix=string --year "2025-$(date +%Y)" --copyright="Element Creations Ltd" --license "AGPL-3.0-only" "$values_file"
   if [ -n "$has_new_vector_ltd_copyright" ]; then
   reuse annotate --copyright-prefix=string --year "2024-2025" --copyright="New Vector Ltd" --license "AGPL-3.0-only" "$values_file"
   fi

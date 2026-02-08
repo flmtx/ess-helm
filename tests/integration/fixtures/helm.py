@@ -1,5 +1,5 @@
 # Copyright 2024-2025 New Vector Ltd
-# Copyright 2025 Element Creations Ltd
+# Copyright 2025-2026 Element Creations Ltd
 #
 # SPDX-License-Identifier: AGPL-3.0-only
 
@@ -60,6 +60,14 @@ async def helm_prerequisites(
                 generate_cert(delegated_ca, [f"mrtc.{generated_data.server_name}"]),
             )
         )
+        if value_file_has("matrixRTC.sfu.exposedServices.turnTLS.enabled", True):
+            resources.append(
+                kubernetes_tls_secret(
+                    f"{generated_data.release_name}-turn-tls",
+                    generated_data.ess_namespace,
+                    generate_cert(delegated_ca, [f"turn.{generated_data.server_name}"]),
+                )
+            )
 
     if value_file_has("elementAdmin.enabled", True):
         resources.append(
@@ -151,7 +159,7 @@ retention:
     )
 
 
-@pytest.fixture(autouse=True, scope="session")
+@pytest.fixture(scope="session")
 async def matrix_stack(
     helm_client: pyhelm3.Client,
     ingress,
@@ -161,6 +169,10 @@ async def matrix_stack(
     generated_data: ESSData,
     loaded_matrix_tools: dict,
 ):
+    # If we do not have TEST_VALUES_FILE define, we skip setting up matrix-stack
+    if not os.environ.get("TEST_VALUES_FILE"):
+        return False
+
     with open(os.environ["TEST_VALUES_FILE"]) as stream:
         values = yaml.safe_load(stream)
 

@@ -154,6 +154,15 @@
     "nodeSelector": {
       "$ref": "file://common/nodeSelector.json"
     },
+    "extraVolumes": {
+      "$ref": "file://common/extraVolumesWithContext.json"
+    },
+    "extraVolumeMounts": {
+      "$ref": "file://common/extraVolumeMountsWithContext.json"
+    },
+    "extraInitContainers": {
+      "$ref": "file://common/extraInitContainers.json"
+    },
     "podSecurityContext": {
       "$ref": "file://common/podSecurityContext.json"
     },
@@ -249,53 +258,6 @@
         },
         "user-dir": {
           "$ref": "file://synapse/single_worker.json"
-        }
-      }
-    },
-    "redis": {
-      "type": "object",
-      "properties": {
-        "image": {
-          "$ref": "file://common/image.json"
-        },
-        "labels": {
-          "$ref": "file://common/labels.json"
-        },
-        "annotations": {
-          "$ref": "file://common/workloadAnnotations.json"
-        },
-        "extraEnv": {
-          "$ref": "file://common/extraEnv.json"
-        },
-        "containersSecurityContext": {
-          "$ref": "file://common/containersSecurityContext.json"
-        },
-        "nodeSelector": {
-          "$ref": "file://common/nodeSelector.json"
-        },
-        "podSecurityContext": {
-          "$ref": "file://common/podSecurityContext.json"
-        },
-        "resources": {
-          "$ref": "file://common/resources.json"
-        },
-        "serviceAccount": {
-          "$ref": "file://common/serviceAccount.json"
-        },
-        "tolerations": {
-          "$ref": "file://common/tolerations.json"
-        },
-        "topologySpreadConstraints": {
-          "$ref": "file://common/topologySpreadConstraints.json"
-        },
-        "livenessProbe": {
-          "$ref": "file://common/probe.json"
-        },
-        "readinessProbe": {
-          "$ref": "file://common/probe.json"
-        },
-        "startupProbe": {
-          "$ref": "file://common/probe.json"
         }
       }
     }

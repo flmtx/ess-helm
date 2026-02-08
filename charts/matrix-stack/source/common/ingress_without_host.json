@@ -26,17 +26,7 @@
       ]
     },
     "service": {
-      "type": "object",
-      "properties": {
-        "type": {
-          "type": "string",
-          "enum": [
-            "ClusterIP",
-            "NodePort",
-            "LoadBalancer"
-          ]
-        }
-      }
+      "$ref": "file://common/service.json"
     }
   }
 }

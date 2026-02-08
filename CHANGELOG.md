@@ -7,6 +7,225 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 <!-- towncrier release notes start -->
 
+# ESS Community Helm Chart 26.2.0 (2026-02-05)
+
+## Changed
+
+- Set default permissions on Hookshot so that local users only have permissions to manage integrations and connections.
+
+  Permissions should be adjusted to give specific users the ability to administer integrations, e.g.
+  ```yaml
+  hookshot:
+    additional:
+      permissions.yaml:
+        config: |
+          permissions:
+          - actor: {{ $.Values.serverName | quote }}
+            services:
+            - service: "*"
+              level: manageConnections
+          - action: "@an-admin-user:{{ $.Values.serverName }}"
+            services:
+            - service: "*"
+              level: admin
+  ``` (#1010, #1014)
+- Update the test cluster values so that Hookshot can make requests to cluster-internal IP addresses. (#1010, #1018, #1023)
+
+## Fixed
+
+- Fix Hookshot widgets not being available when using the Synapse `Ingress` / not having a dedicated Hookshot `Ingress`. (#1010)
+
+## Internal
+
+- CI: Export logs of all k3d namespaces. (#1015)
+- CI: Remove code duplication that existed between `pytest` integration test suite and `setup_test_cluster.sh` script. (#1016, #1017)
+- CI: Use OCI repository to install `cert-manager` and `prometheus-operator-crds`. (#1020)
+- CI: Support `--rollback-on-failure` helm 4 parameter. (#1022)
+
+
+# ESS Community Helm Chart 26.1.3 (2026-01-28)
+
+## Changed
+
+- Upgrade Element Web to v1.12.9.
+
+  Highlights:
+  - Allow local log downloads instead of a bug report endpoint URL.
+  - Support for stable [MSC4191](https://github.com/matrix-org/matrix-spec-proposals/pull/4191) account management action parameter
+  - Support for stable m.oauth UIA stage from [MSC4312](https://github.com/matrix-org/matrix-spec-proposals/pull/4312)
+
+  Full Changelogs:
+  - [v1.12.9](https://github.com/element-hq/element-web/releases/tag/v1.12.9)
+
+  (#981)
+- Upgrade Matrix Authentication Service to v1.10.0.
+
+  Highlights:
+  - Support for stable [MSC3824](https://github.com/matrix-org/matrix-spec-proposals/pull/3824) (OAuth 2.0 API aware clients) values
+  - Support for stable [MSC4191](https://github.com/matrix-org/matrix-spec-proposals/pull/4191) account management actions
+  - Cleanup various old, soft-deleted entities from the database.
+
+  Full Changelogs:
+  - [v1.10.0](https://github.com/element-hq/matrix-authentication-service/releases/tag/v1.10.0)
+
+  (#990)
+- Upgrade Synapse to v1.146.0.
+
+  Highlights:
+  - Stabilise support for [MSC4312](https://github.com/matrix-org/matrix-spec-proposals/pull/4312)'s `m.oauth` User-Interactive Auth stage for resetting cross-signing identity with the OAuth 2.0 API.
+  - Fix joining a restricted v12 room locally when no local room creator is present but local users with sufficient power levels are.
+  - Fixed parallel calls to `/_matrix/media/v1/create` being rate-limited for appservices even if `rate_limited: false` was set in the registration.
+
+  Full Changelogs:
+  - [v1.146.0](https://github.com/element-hq/synapse/releases/tag/v1.146.0)
+
+  (#992)
+
+
+# ESS Community Helm Chart 26.1.2 (2026-01-27)
+
+## Added
+
+- Add support for configuring `internalTrafficPolicy` for services behind ingresses. (#999)
+- Add support for configuring `externalTrafficPolicy` for `NodePort` and `LoadBalancer` services behind ingresses. (#1000)
+- Add support for configuring `externalTrafficPolicy` to `exposedServices`. (#1001)
+- Add support for configuring `internalTrafficPolicy` to `exposedServices`. (#1001)
+- Add support to customize `nodePort` of exposed services.
+
+  `nodePort` property of `exposedServices.*` is now a string template taking two parameters:
+  - `context`: The exposed service values context `*.exposedServices.<svc>`
+  - `root` : The helm $ root values context
+
+  On Matrix RTC values, the `nodePort` template defaults to `{{ .context.port }}` so that the `nodePort`
+  is the same as `port`. Setting the template to an empty string will skip setting `nodePort`
+  on the service.
+
+  (#1002)
+- Add support for configuring `externalIPs` of exposed services. (#1006)
+- Add support for configuring annotations of Ingress services. (#1007)
+- Add support for configuring `externalIPs` of Ingress services. (#1007)
+
+## Changed
+
+- Hookshot: Disable encryption by default as it is still experimental. (#995)
+- Hookshot: Use appservice fully qualified domain name in the registration file. (#996)
+- Hookshot: Publish service unready address. (#996)
+- Hookshot: Enable adding widgets in rooms where it is invited by default. (#997)
+- Change default `externalTrafficPolicy` for the SFU exposed services from `Local` to Kubernetes defaults `Cluster`. (#1001)
+- Update Hookshot to 7.3.1.
+
+  Highlights :
+  - Add generic webhook transformation JS snippet which can handle GitLab Pipeline payloads under `contrib/jsTransformationFunctions/gitlab-pipeline.js`
+  - Add generic webhook transformation JS snippet to format text as code block under `contrib/jsTransformationFunctions/format-as-code.js`
+  - Fix the `!hookshot help` command not working
+
+  Full Changelogs:
+  - [7.3.1](https://github.com/matrix-org/matrix-hookshot/releases/tag/7.3.1)
+
+  (#1008)
+
+## Fixed
+
+- Matrix RTC: Fix a templating issue when turn was enabled with  a cert-manager issuer to generate the tls secret. (#989)
+- Hookshot: Fix a templating issue when Matrix Authentication Service is enabled if Hookshot was enabled without an Ingress. (#993)
+
+## Documentation
+
+- Document how to setup and configure Hookshot. (#988)
+
+## Internal
+
+- CI: pin Helm to 3.19.4 in the manifest tests to avoid a bug with merging null values. (#994)
+- CI: Add test running Hookshot with Matrix Authentication Service enabled. (#995)
+- Build services schema using a common service.json file. (#1003)
+
+
+# ESS Community Helm Chart 26.1.1 (2026-01-22)
+
+## Removed / Breaking Changes
+
+- Move Synapse's Redis to a top-level shared component that can be used by multiple components of the chart.
+
+  There is no impact when using the default values, but if you have customised values under the `synapse.redis` key, you will need to update them to be under the new top-level `redis` redis. (#972)
+
+## Added
+
+- Add `extraInitContainers` support to all workloads. (#971)
+- Matrix RTC: Add support for configuring Turn TLS to help RTC traffic go through corporate Wifi networks and firewalls. (#976)
+- Add support for generating appservice registration files with `matrix-tools`. (#979)
+- Add support for Hookshot installation in ESS Community.
+
+  [Hookshot](https://matrix-org.github.io/matrix-hookshot/latest/hookshot.html) is a Matrix Bot for connecting to external services.
+  It is not enabled by default, but can be enabled by setting `hookshot.enabled: true`. (#979, #986)
+- Matrix RTC: Add support for configuring UDP Turn. (#982)
+
+## Changed
+
+- Support generator arguments in `matrix-tools` secret generation. (#973)
+- Support configuring the RSA key size generated by `matrix-tools`. (#973)
+- Support exporting RSA key as DER and PEM `matrix-tools`. (#973)
+- `matrixRTC.sfu.exposedServices.*.portType` are now an enum, and only accepts `NodePort`, `HostPort` and `LoadBalancer`. (#976)
+- Few corrections to the README. (#980)
+- Specify service type `ClusterIP` for internal services of Matrix RTC and Synapse. (#985)
+
+## Documentation
+
+- Make documentation clearer that some configuration options can't be changed by the additional configuration mechanism. (#975)
+
+
+# ESS Community Helm Chart 26.1.0 (2026-01-14)
+
+## Added
+
+- Add support for `extraVolumes` and `extraVolumeMounts` in components values. (#957, #965)
+
+## Changed
+
+- Upgrade Element Web to v1.12.8.
+
+  Highlights:
+  - Update polls UX to match EX Mobile and improve accessibility.
+  - [MSC4380](https://github.com/matrix-org/matrix-spec-proposals/pull/4380) Invite blocking support
+  - Update history visibility UX
+
+
+  Full Changelogs:
+  - [v1.12.7](https://github.com/element-hq/element-web/releases/tag/v1.12.7)
+  - [v1.12.8](https://github.com/element-hq/element-web/releases/tag/v1.12.8)
+
+  (#931, #960)
+- Adjust generated file copyright headers for 2026. (#943)
+- Revert change of Matrix Authentication Service deployment's `maxSurge` to 0. (#961)
+- Upgrade Matrix Authentication Service to v1.9.0.
+
+  Highlights:
+  - Fix running multiple migration process in parallel
+
+  Full Changelogs:
+  - [v1.9.0](https://github.com/element-hq/matrix-authentication-service/releases/tag/v1.9.0)
+
+  (#961)
+- Upgrade Synapse to v1.145.0.
+
+  Highlights:
+  - Add memberships endpoint to the admin API. This is useful for forensics and T&S purpose
+  - Add worker support to GET `/_synapse/admin/v2/users/<user_id>`
+
+  Full Changelogs:
+  - [v1.145.0](https://github.com/element-hq/synapse/releases/tag/v1.145.0)
+
+  (#962)
+- Separate post-deployment hints and domains in NOTES. (#968)
+
+## Internal
+
+- CI: set timeouts for curl so it doesn't attempt to connect for longer than `Pod` startup time. (#935)
+- CI: wait a bit longer for the `Ingress` controller to be available. (#942)
+- CI: run most jobs on maintenance branches too. (#945)
+- CI: Adjust Go version used to test matrix-tools to 1.25. (#952)
+- CI: Set a maximum number of cooperative asyncio tasks. (#966)
+
+
 # ESS Community Helm Chart 25.12.2 (2025-12-19)
 
 ## Security

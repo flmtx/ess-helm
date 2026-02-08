@@ -1,6 +1,6 @@
 {{- /*
 Copyright 2024-2025 New Vector Ltd
-Copyright 2025 Element Creations Ltd
+Copyright 2025-2026 Element Creations Ltd
 
 SPDX-License-Identifier: AGPL-3.0-only
 */ -}}
@@ -39,6 +39,10 @@ spec:
     spec:
       restartPolicy: OnFailure
 {{- include "element-io.ess-library.pods.commonSpec" (dict "root" $ "context" (dict "componentValues" . "instanceSuffix" "init-secrets" "deployment" false "usesMatrixTools" true "mountServiceAccountToken" true)) | nindent 6 }}
+{{- with .extraInitContainers }}
+      initContainers:
+      {{- toYaml . | nindent 6 }}
+{{- end }}
       containers:
       - name: init-secrets
         {{- include "element-io.ess-library.pods.image" (dict "root" $ "context" $.Values.matrixTools.image) | nindent 8 }}
@@ -57,5 +61,28 @@ spec:
         - {{ include "element-io.init-secrets.generated-secrets" (dict "root" $ "context" .) | fromYamlArray | join "," | quote }}
         - "-labels"
         - {{ include "element-io.init-secrets.labels" (dict "root" $ "context" (dict "labels" .labels "withChartVersion" false)) | trim  | replace ": " "="| replace "\n" "," | replace "\"" "" | quote }}
+{{- if or (include "element-io.init-secrets.registration-templates" (dict "root" $)) .extraVolumeMounts }}
+        volumeMounts:
+{{- range .extraVolumeMounts }}
+        - {{ (. | toYaml) | nindent 10 }}
+{{- end }}
+{{- if include "element-io.init-secrets.registration-templates" (dict "root" $) }}
+        - mountPath: "/registration-templates"
+          name: registration-templates
+          readOnly: true
+{{- end -}}
+{{- end -}}
+{{- if or (include "element-io.init-secrets.registration-templates" (dict "root" $))  .extraVolumes }}
+      volumes:
+{{- range .extraVolumes }}
+      - {{- (tpl (. | toYaml) $) | nindent 8 }}
+{{- end }}
+{{- if include "element-io.init-secrets.registration-templates" (dict "root" $) }}
+      - configMap:
+          defaultMode: 420
+          name: {{ $.Release.Name }}-init-secrets
+        name: registration-templates
+{{- end -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}

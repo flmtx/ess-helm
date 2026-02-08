@@ -1,0 +1,39 @@
+{{- /*
+Copyright 2024 New Vector Ltd
+Copyright 2026 Element Creations Ltd
+
+SPDX-License-Identifier: AGPL-3.0-only
+*/ -}}
+
+{{- with $.Values.matrixRTC -}}
+{{- if .enabled -}}
+{{- with .sfu -}}
+{{- if $.Capabilities.APIVersions.Has "cert-manager.io/v1/Certificate" }}
+{{- if and .enabled .exposedServices.turnTLS.enabled (not .tlsSecret) $.Values.certManager -}}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $.Release.Name }}-matrix-rtc-sfu-turn-tls
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "element-io.matrix-rtc-sfu.labels" (dict "root" $ "context" (mustMergeOverwrite (dict "suffix" "-turn-tls") .)) | nindent 4 }}
+spec:
+  commonName: {{ tpl .exposedServices.turnTLS.domain $ }}
+  secretName: "{{ $.Release.Name }}-turn-tls-certmanager-tls"
+  dnsNames:
+  - {{ tpl .exposedServices.turnTLS.domain $ }}
+  issuerRef:
+{{- with $.Values.certManager.clusterIssuer }}
+    name: {{ . }}
+    kind: ClusterIssuer
+{{- end }}
+{{- with $.Values.certManager.issuer }}
+    name: {{ . }}
+    kind: Issuer
+{{- end }}
+    group: cert-manager.io
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

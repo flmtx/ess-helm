@@ -1,6 +1,6 @@
 {{- /*
 Copyright 2025 New Vector Ltd
-Copyright 2025 Element Creations Ltd
+Copyright 2025-2026 Element Creations Ltd
 
 SPDX-License-Identifier: AGPL-3.0-only
 */ -}}
@@ -33,6 +33,10 @@ spec:
 {{- end }}
     spec:
 {{- include "element-io.ess-library.pods.commonSpec" (dict "root" $ "context" (dict "componentValues" . "instanceSuffix" "postgres" "deployment" false)) | nindent 6 }}
+{{- with .extraInitContainers }}
+      initContainers:
+      {{- toYaml . | nindent 6 }}
+{{- end }}
       containers:
       - name: postgres
         {{- include "element-io.ess-library.pods.image" (dict "root" $ "context" .image) | nindent 8 }}
@@ -88,6 +92,9 @@ spec:
           mountPath: /tmp
         - name: var-run
           mountPath: /var/run/postgresql
+{{- range .extraVolumeMounts }}
+        - {{ (. | toYaml) | nindent 10 }}
+{{- end }}
       - name: postgres-ess-updater
         {{- include "element-io.ess-library.pods.image" (dict "root" $ "context" .image) | nindent 8 }}
         command:
@@ -127,6 +134,9 @@ spec:
         - containerPort: 5432
           name: postgres
         volumeMounts:
+{{- range .extraVolumeMounts }}
+        - {{ (. | toYaml) | nindent 10 }}
+{{- end }}
 {{- with (include "element-io.init-secrets.postgres-generated-secrets" (dict "root" $)) | fromYamlArray }}
   {{- range . -}}
     {{- $secretArg := . | splitList ":" }}
@@ -173,6 +183,12 @@ spec:
           httpGet:
             path: /metrics
             port: metrics
+{{- with .extraVolumeMounts }}
+        volumeMounts:
+{{- range . }}
+        - {{ (. | toYaml) | nindent 10 }}
+{{- end }}
+{{- end }}
 {{- with .resources }}
         resources:
           {{- toYaml . | nindent 10 }}
@@ -197,6 +213,9 @@ spec:
           secretName: {{ . }}
         name: "secret-{{ . | sha256sum | trunc 12 }}"
 {{- end }}
+{{- end }}
+{{- range .extraVolumes }}
+      - {{- (tpl (. | toYaml) $) | nindent 8 }}
 {{- end }}
       - name: config
         configMap:

@@ -1,6 +1,6 @@
 {{- /*
 Copyright 2025 New Vector Ltd
-Copyright 2025 Element Creations Ltd
+Copyright 2025-2026 Element Creations Ltd
 
 SPDX-License-Identifier: AGPL-3.0-only
 */ -}}
@@ -12,11 +12,11 @@ kind: Service
 metadata:
   name: {{ $.Release.Name }}-matrix-authentication-service
   namespace: {{ $.Release.Namespace }}
+{{- include "element-io.ess-library.ingress-service.annotations" (dict "root" $ "context" .ingress) | nindent 2 }}
   labels:
     {{- include "element-io.matrix-authentication-service.labels" (dict "root" $ "context" .) | nindent 4 }}
 spec:
-  type: {{ .ingress.service.type | default $.Values.ingress.service.type }}
-  ipFamilyPolicy: PreferDualStack
+{{- include "element-io.ess-library.ingress-service.spec" (dict "root" $ "context" .ingress) | nindent 2 }}
   ports:
   - port: 8080
     protocol: TCP

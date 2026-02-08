@@ -1,5 +1,5 @@
 # Copyright 2024-2025 New Vector Ltd
-# Copyright 2025 Element Creations Ltd
+# Copyright 2025-2026 Element Creations Ltd
 #
 # SPDX-License-Identifier: AGPL-3.0-only
 
@@ -21,7 +21,7 @@ matrixTools:
 
     ## The tag of the container image to use.
     ## One of tag or digest must be provided.
-    tag: "0.5.8"
+    tag: "0.7.2"
 
     ## Container digest to use. Used to pull the image instead of the image tag if set
     ## The tag will still be set as the app.kubernetes.io/version label
@@ -68,6 +68,11 @@ ingress:
   ## How the Services behind all Ingresses is constructed by default
   service:
     type: ClusterIP
+    ## Annotations to be added to all Ingresses services. Will be merged with component specific Ingress services annotations
+    annotations: {}
+    # External traffic policy will be configured on services of type `NodePort` and `LoadBalancer`
+    externalTrafficPolicy: Cluster
+    internalTrafficPolicy: Cluster
   ## If set, some tweaks will be applied automatically to ingresses based on the controller type here.
   ## This can be set to `ingress-nginx`.
   # controllerType:
@@ -169,6 +174,16 @@ initSecrets:
   ## - name: FOO
   ##   value: "bar"
   extraEnv: []
+  # Extra volumes to mount in Init Secrets, as a yaml array
+  # This supports helm templating
+  extraVolumes: []
+
+  # Extra volumes to mount in Init Secrets, as a yaml array
+  extraVolumeMounts: []
+
+  # Extra initContainers to add to Init Secrets, as a yaml array
+  extraInitContainers: []
+
   ## NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
   nodeSelector: {}
   ## A subset of PodSecurityContext. PodSecurityContext holds pod-level security attributes and common container settings
@@ -309,6 +324,16 @@ deploymentMarkers:
   ## - name: FOO
   ##   value: "bar"
   extraEnv: []
+  # Extra volumes to mount in Deployment Markers, as a yaml array
+  # This supports helm templating
+  extraVolumes: []
+
+  # Extra volumes to mount in Deployment Markers, as a yaml array
+  extraVolumeMounts: []
+
+  # Extra initContainers to add to Deployment Markers, as a yaml array
+  extraInitContainers: []
+
   ## NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
   nodeSelector: {}
   ## A subset of PodSecurityContext. PodSecurityContext holds pod-level security attributes and common container settings
@@ -466,6 +491,14 @@ matrixRTC:
     # tlsSecret:
 
     ## How the Service behind this Ingress is constructed
+    # service:
+    #   type: ClusterIP
+    #   annotations: {}
+    #   # External traffic policy will be configured on services of type `NodePort` and `LoadBalancer`
+    #   externalTrafficPolicy: Cluster
+    #   internalTrafficPolicy: Cluster
+    #   # External IPs addresses of this service.
+    #   externalIPs: []
     service: {}
     ## If set, some tweaks will be applied automatically to ingresses based on the controller type here.
     ## This can be set to `ingress-nginx`.
@@ -541,6 +574,16 @@ matrixRTC:
   ## - name: FOO
   ##   value: "bar"
   extraEnv: []
+  # Extra volumes to mount in Matrix RTC, as a yaml array
+  # This supports helm templating
+  extraVolumes: []
+
+  # Extra volumes to mount in Matrix RTC, as a yaml array
+  extraVolumeMounts: []
+
+  # Extra initContainers to add to Matrix RTC, as a yaml array
+  extraInitContainers: []
+
   ## NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
   nodeSelector: {}
   ## A subset of PodSecurityContext. PodSecurityContext holds pod-level security attributes and common container settings
@@ -736,23 +779,109 @@ matrixRTC:
     exposedServices:
       rtcTcp:
         enabled: true
-        # Either a NodePort or a HostPort
+        # Annotations to be added to this service
+        # This is unused if the portType is `HostPort` as the pod port
+        # is exposed directly on the node running it, so no service is created.
+        annotations: {}
+        # Either a NodePort, HostPort or LoadBalancer
+        # If the port is a HostPort, no Service will be created.
         portType: NodePort
+        # External IPs addresses of this service.
+        # externalIPs: []
+        # Node Port template value. If empty, `nodePort` wont be set on the service port
+        # And kubernetes will automatically assign a port.
+        nodePort: "{{ .context.port }}"
+        # Either Local or Cluster
+        internalTrafficPolicy: Cluster
+        externalTrafficPolicy: Cluster
         port: 30881
+
       rtcMuxedUdp:
         enabled: true
-        # Either a NodePort or a HostPort
+        # Annotations to be added to this service
+        # This is unused if the portType is `HostPort` as the pod port
+        # is exposed directly on the node running it, so no service is created.
+        annotations: {}
+        # Either a NodePort, HostPort or LoadBalancer
+        # If the port is a HostPort, no Service will be created.
         portType: NodePort
+        # External IPs addresses of this service.
+        # externalIPs: []
+        # Node Port template value. If empty, `nodePort` wont be set on the service port
+        # And kubernetes will automatically assign a port.
+        nodePort: "{{ .context.port }}"
+        # Either Local or Cluster
+        internalTrafficPolicy: Cluster
+        externalTrafficPolicy: Cluster
         port: 30882
+
       rtcUdp:
         enabled: false
-        # Either a NodePort or a HostPort
+        # Annotations to be added to this service
+        # This is unused if the portType is `HostPort` as the pod port
+        # is exposed directly on the node running it, so no service is created.
+        annotations: {}
+        # Either a NodePort, HostPort or LoadBalancer
+        # If the port is a HostPort, no Service will be created.
         portType: NodePort
+        # External IPs addresses of this service.
+        # externalIPs: []
         portRange:
           # The beginning port of the range
           startPort: 31000
           # The last port of the range
           endPort: 32000
+          # Node Port template value.
+          # The template takes as argument :
+          # - "context" : This exposed service values context, in addition with a key "port"
+          #               containing current port number of the helm range
+          # - "root" : The $ helm root special context
+          # If empty, `nodePort` wont be set on the service port
+          # And kubernetes will automatically assign a port.
+          nodePort: "{{ .context.port }}"
+      turnTLS:
+        enabled: false
+        # Annotations to be added to this service
+        # This is unused if the portType is `HostPort` as the pod port
+        # is exposed directly on the node running it, so no service is created.
+        annotations: {}
+        # Either a NodePort, HostPort or LoadBalancer
+        # If the port is a HostPort, no Service will be created.
+        portType: NodePort
+        # External IPs addresses of this service.
+        # externalIPs: []
+        # Node Port template value. If empty, `nodePort` wont be set on the service port
+        # And kubernetes will automatically assign a port.
+        nodePort: "{{ .context.port }}"
+        # Either Local or Cluster
+        internalTrafficPolicy: Cluster
+        externalTrafficPolicy: Cluster
+        port: 31443
+
+        # The domain of the service
+        domain: ""
+        # The TLS secret used to expose this service
+        tlsSecret: ""
+
+      turn:
+        enabled: false
+        # Annotations to be added to this service
+        # This is unused if the portType is `HostPort` as the pod port
+        # is exposed directly on the node running it, so no service is created.
+        annotations: {}
+        # Either a NodePort, HostPort or LoadBalancer
+        # If the port is a HostPort, no Service will be created.
+        portType: NodePort
+        # External IPs addresses of this service.
+        # externalIPs: []
+        # Node Port template value. If empty, `nodePort` wont be set on the service port
+        # And kubernetes will automatically assign a port.
+        nodePort: "{{ .context.port }}"
+        # Either Local or Cluster
+        internalTrafficPolicy: Cluster
+        externalTrafficPolicy: Cluster
+        port: 31478
+
     # Details of the image to be used
     image:
       ## The host and (optional) port of the container image registry for this component.
@@ -785,6 +914,16 @@ matrixRTC:
     ## - name: FOO
     ##   value: "bar"
     extraEnv: []
+    # Extra volumes to mount in Matrix RTC SFU, as a yaml array
+    # This supports helm templating
+    extraVolumes: []
+
+    # Extra volumes to mount in Matrix RTC SFU, as a yaml array
+    extraVolumeMounts: []
+
+    # Extra initContainers to add to Matrix RTC SFU, as a yaml array
+    extraInitContainers: []
+
     ## Labels to add to all manifest for this component
     labels: {}
     ## Defines the annotations to add to the workload
@@ -1015,6 +1154,14 @@ elementAdmin:
     # tlsSecret:
 
     ## How the Service behind this Ingress is constructed
+    # service:
+    #   type: ClusterIP
+    #   annotations: {}
+    #   # External traffic policy will be configured on services of type `NodePort` and `LoadBalancer`
+    #   externalTrafficPolicy: Cluster
+    #   internalTrafficPolicy: Cluster
+    #   # External IPs addresses of this service.
+    #   externalIPs: []
     service: {}
     ## If set, some tweaks will be applied automatically to ingresses based on the controller type here.
     ## This can be set to `ingress-nginx`.
@@ -1029,6 +1176,16 @@ elementAdmin:
   ## - name: FOO
   ##   value: "bar"
   extraEnv: []
+  # Extra volumes to mount in Element Admin, as a yaml array
+  # This supports helm templating
+  extraVolumes: []
+
+  # Extra volumes to mount in Element Admin, as a yaml array
+  extraVolumeMounts: []
+
+  # Extra initContainers to add to Element Admin, as a yaml array
+  extraInitContainers: []
+
   ## A subset of SecurityContext. ContainersSecurityContext holds pod-level security attributes and common container settings
   containersSecurityContext:
     ## Controls whether a process can gain more privileges than its parent process.
@@ -1212,20 +1369,21 @@ elementWeb:
   ## Most settings are configurable but some settings are owned by the chart and can't be overwritten
   additional: {}
 
+
   # Number of Element Web replicas to start up
   replicas: 1
   # Details of the image to be used
   image:
     ## The host and (optional) port of the container image registry for this component.
     ## If not specified Docker Hub is implied
-    registry: ghcr.io
+    registry: oci.element.io
 
     ## The path in the registry where the container image is located
-    repository: element-hq/element-web
+    repository: element-web
 
     ## The tag of the container image to use.
     ## One of tag or digest must be provided.
-    tag: "v1.12.7"
+    tag: "v1.12.9"
 
     ## Container digest to use. Used to pull the image instead of the image tag if set
     ## The tag will still be set as the app.kubernetes.io/version label
@@ -1258,6 +1416,14 @@ elementWeb:
     # tlsSecret:
 
     ## How the Service behind this Ingress is constructed
+    # service:
+    #   type: ClusterIP
+    #   annotations: {}
+    #   # External traffic policy will be configured on services of type `NodePort` and `LoadBalancer`
+    #   externalTrafficPolicy: Cluster
+    #   internalTrafficPolicy: Cluster
+    #   # External IPs addresses of this service.
+    #   externalIPs: []
     service: {}
     ## If set, some tweaks will be applied automatically to ingresses based on the controller type here.
     ## This can be set to `ingress-nginx`.
@@ -1272,6 +1438,16 @@ elementWeb:
   ## - name: FOO
   ##   value: "bar"
   extraEnv: []
+  # Extra volumes to mount in Element Web, as a yaml array
+  # This supports helm templating
+  extraVolumes: []
+
+  # Extra volumes to mount in Element Web, as a yaml array
+  extraVolumeMounts: []
+
+  # Extra initContainers to add to Element Web, as a yaml array
+  extraInitContainers: []
+
   ## A subset of SecurityContext. ContainersSecurityContext holds pod-level security attributes and common container settings
   containersSecurityContext:
     ## Controls whether a process can gain more privileges than its parent process.
@@ -1506,6 +1682,16 @@ haproxy:
   ## - name: FOO
   ##   value: "bar"
   extraEnv: []
+  # Extra volumes to mount in HAProxy, as a yaml array
+  # This supports helm templating
+  extraVolumes: []
+
+  # Extra volumes to mount in HAProxy, as a yaml array
+  extraVolumeMounts: []
+
+  # Extra initContainers to add to HAProxy, as a yaml array
+  extraInitContainers: []
+
   ## NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
   nodeSelector: {}
   ## A subset of PodSecurityContext. PodSecurityContext holds pod-level security attributes and common container settings
@@ -1662,6 +1848,368 @@ haproxy:
     ## Number of seconds after which the probe times out
     timeoutSeconds: 1
 
+hookshot:
+  enabled: false
+  # Details of the image to be used
+  image:
+    ## The host and (optional) port of the container image registry for this component.
+    ## If not specified Docker Hub is implied
+    registry: ghcr.io
+
+    ## The path in the registry where the container image is located
+    repository: matrix-org/matrix-hookshot
+
+    ## The tag of the container image to use.
+    ## One of tag or digest must be provided.
+    tag: "7.3.2"
+
+    ## Container digest to use. Used to pull the image instead of the image tag if set
+    ## The tag will still be set as the app.kubernetes.io/version label
+    # digest:
+
+    ## Whether the image should be pulled on container startup. Valid values are Always, IfNotPresent and Never
+    ## If this isn't provided it defaults to Always when using the image tag or IfNotPresent if using a digest
+    # pullPolicy:
+
+    ## A list of pull secrets to use for this image
+    ## e.g.
+    ## pullSecrets:
+    ## - name: dockerhub
+    pullSecrets: []
+
+  # Hookshot encryption support is experimental. You can enable it by setting `enableEncryption` to `true`.
+  enableEncryption: false
+
+  user:
+    localpart: hookshot
+
+  logging:
+    # The maximum level of Hookshot log output before any overrides
+    # Must be one of [critical, error, warning, info, debug]
+    level: info
+
+
+  ## Hookshot registration file to connect to a remote Synapse instance..
+  ## This secret is optional, and will be generated by the `initSecrets` job
+  ## if it is empty.
+  ## It can either be provided inline in the Helm chart e.g.:
+  ## appserviceRegistration:
+  ##   value: SecretValue
+  ##
+  ## Or it can be provided via an existing Secret e.g.:
+  ## appserviceRegistration:
+  ##   secret: existing-secret
+  ##   secretKey: key-in-secret
+  appserviceRegistration: {}
+
+  ## Hookshot passkey used to encrypt stored tokens..
+  ## This secret is optional, and will be generated by the `initSecrets` job
+  ## if it is empty.
+  ## It can either be provided inline in the Helm chart e.g.:
+  ## passkey:
+  ##   value: SecretValue
+  ##
+  ## Or it can be provided via an existing Secret e.g.:
+  ## passkey:
+  ##   secret: existing-secret
+  ##   secretKey: key-in-secret
+  passkey: {}
+
+  ## How this ingress should be constructed
+  ingress:
+    ## What hostname should be used for this Ingress
+    # host:
+
+    ## Annotations to be added to this Ingress
+    annotations: {}
+
+    ## What Ingress Class Name that should be used for this Ingress
+    # className:
+
+    ## Disable TLS configuration by setting it to false
+    tlsEnabled: true
+
+    ## The name of the Secret containing the TLS certificate and the key that should be used for this Ingress
+    # tlsSecret:
+
+    ## How the Service behind this Ingress is constructed
+    # service:
+    #   type: ClusterIP
+    #   annotations: {}
+    #   # External traffic policy will be configured on services of type `NodePort` and `LoadBalancer`
+    #   externalTrafficPolicy: Cluster
+    #   internalTrafficPolicy: Cluster
+    #   # External IPs addresses of this service.
+    #   externalIPs: []
+    service: {}
+    ## If set, some tweaks will be applied automatically to ingresses based on the controller type here.
+    ## This can be set to `ingress-nginx`.
+    # controllerType:
+
+  ## Additional configuration to provide to Hookshot.
+  ## You can, if you whish, override it in the additional config.
+  ## Each key under additional is an additional config to merge into Hookshot hookshot-config.yaml
+  ## Full details on available configuration options can be found at https://matrix-org.github.io/matrix-hookshot/latest/setup.html
+
+  ## This can be provided in-line in the Helm Chart and/or via an existing Secret
+  ## e.g.
+  ## additional:
+  ##   0-customConfig:
+  ##     config: |
+  ##       <any valid configuration>
+  ##   1-customConfig:
+  ##     configSecret: custom-config
+  ##     configSecretKey: shared.yaml
+  ##
+  ## Most settings are configurable but some settings are owned by the chart and can't overwritten
+  additional: {}
+
+
+  ## Configures the PersistentVolumeClaim to be used for storage
+  storage:
+    ## Name of an existing PersistentVolumeClaim in this namespace that should be used
+    # existingClaim:
+
+    ## The size of a PersistentVolumeClaim to be constructed
+    ## Ignored if existingClaim is provided
+    size: 10Gi
+
+    ## The StorageClass to be used by the constructed PersistentVolumeClaim.
+    ## Will use the cluster default if not provided.
+    ## If changed after initial usage the PersistentVolumeClaim could be recreated causing data-loss.
+    ## Ignored if existingClaim is provided
+    # storageClassName:
+
+    ## Whether to instruct Helm to keep or delete the constructed PersistentVolumeClaim when uninstalling the chart
+    ## Ignored if existingClaim is provided
+    resourcePolicy: keep
+
+  ## Kubernetes resources to allocate to each instance.
+  resources:
+    ## Requests describes the minimum amount of compute resources required. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
+    requests:
+      memory: 100Mi
+      cpu: 10m
+
+    ## Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
+    limits:
+      memory: 1000Mi
+
+  # Extra volumes to mount in Hookshot, as a yaml array
+  # This supports helm templating
+  extraVolumes: []
+
+
+  # Extra volumes to mount in Hookshot, as a yaml array
+  extraVolumeMounts: []
+
+
+  # Extra initContainers to add to Hookshot, as a yaml array
+  extraInitContainers: []
+
+
+  ## Labels to add to all manifest for this component
+  labels: {}
+
+  ## Controls configuration of the ServiceAccount for this component
+  serviceAccount:
+    ## Whether a ServiceAccount should be created by the chart or not
+    create: true
+
+    ## What name to give the ServiceAccount. If not provided the chart will provide the name automatically
+    name: ""
+
+    ## Annotations to add to the service account
+    annotations: {}
+
+  ## NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+  nodeSelector: {}
+
+  ## Workload tolerations allows Pods that are part of this (sub)component to 'tolerate' any taint that matches the triple <key,value,effect> using the matching operator <operator>.
+  ##
+  ## * effect indicates the taint effect to match. Empty means match all taint effects. When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
+  ## * key is the taint key that the toleration applies to. Empty means match all taint keys. If the key is empty, operator must be Exists; this combination means to match all values and all keys.
+  ## * operator represents a key's relationship to the value. Valid operators are Exists and Equal. Defaults to Equal. Exists is equivalent to wildcard for value, so that a pod can tolerate all taints of a particular category.
+  ## * value is the taint value the toleration matches to. If the operator is Exists, the value should be empty, otherwise just a regular string.
+  ##
+  ## * tolerationSeconds represents the period of time the toleration (which must be of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default, it is not set, which means tolerate the taint forever (do not evict). Zero and negative values will be treated as 0 (evict immediately) by the system.
+  ## e.g.
+  ## tolerations:
+  ## - effect:
+  ##   key:
+  ##   operator:
+  ##   value:
+
+  tolerations: []
+
+  ## TopologySpreadConstraints describes how Pods for this component should be spread between nodes.
+  ## https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/ for in-depth details
+  ## labelSelector & whenUnsatisfiable can be omitted and the chart will populate a sensible value for this component.
+  ## Similarly `pod-template-hash` will be aded to `matchLabelKeys` if appropriate for this component.
+  ## If any TopologySpreadConstraints are provided for a component any global TopologySpreadConstraints are ignored for that component.
+  ## e.g.
+  ## topologySpreadConstraints:
+  ## - maxSkew: 1
+  ##   topologyKey: topology.kubernetes.io/zone
+  ##   # nodeAffinityPolicy: Honor/Ignore
+  ##   # nodeTaintsPolicy: Honor/Ignore
+  ##   # whenUnsatisfiable: DoNotSchedule/ScheduleAnyway
+  topologySpreadConstraints: []
+
+  ## A subset of PodSecurityContext. PodSecurityContext holds pod-level security attributes and common container settings
+  podSecurityContext:
+    ## A special supplemental group that applies to all containers in a pod. Some volume types allow the Kubelet to
+    ## change the ownership of that volume to be owned by the pod:
+    ##
+    ## 1. The owning GID will be the FSGroup
+    ## 2. The setgid bit is set (new files created in the volume will be owned by FSGroup)## 3. The permission bits are OR'd with rw-rw----
+    ##
+    ## If unset, the Kubelet will not modify the ownership and permissions of any volume.
+    fsGroup: 10007
+
+    ## fsGroupChangePolicy defines behavior of changing ownership and permission of the volume before being exposed inside Pod.
+    ## This field will only apply to volume types which support fsGroup based ownership(and permissions).
+    ## It will have no effect on ephemeral volume types such as: secret, configmaps and emptydir. Valid values are "OnRootMismatch" and "Always". If not specified, "Always" is used.
+    # fsGroupChangePolicy:
+
+    ## The GID to run the entrypoint of the container process. Uses runtime default if unset.
+    runAsGroup: 10007
+
+    ## Indicates that the container must run as a non-root user. If true, the Kubelet will validate the image at runtime to ensure that it does not run as UID 0 (root) and fail to start the container if it does. If unset or false, no such validation will be performed.
+    runAsNonRoot: true
+
+    ## The UID to run the entrypoint of the container process. Defaults to user specified in image metadata if unspecified.
+    runAsUser: 10007
+
+    ## SELinuxOptions are the labels to be applied to all the pod containers
+    # seLinuxOptions:
+      ## Level is SELinux level label that applies to the container.
+      # level:
+
+      ## Role is a SELinux role label that applies to the container.
+      # role:
+
+      ## Type is a SELinux type label that applies to the container.
+      # type:
+
+      ## User is a SELinux user label that applies to the container.
+      # user:
+
+    ## "To set the Seccomp profile for a Container, include the seccompProfile field in the securityContext section of your Pod or Container manifest.
+    ## The seccompProfile field is a SeccompProfile object consisting of type and localhostProfile.
+    ## Valid options for type include RuntimeDefault, Unconfined, and Localhost. localhostProfile must only be set set if type Localhost.
+    ## It indicates the path of the pre-configured profile on the node, relative to the kubelet's configured Seccomp profile location (configured with the --root-dir flag).
+    seccompProfile:
+      # localhostProfile:
+      type: RuntimeDefault
+
+    ## A list of groups applied to the first process run in each container, in addition to the container's primary GID.
+    ## If unspecified, no groups will be added to any container.
+    supplementalGroups: []
+
+  ## A subset of SecurityContext. ContainersSecurityContext holds pod-level security attributes and common container settings
+  containersSecurityContext:
+    ## Controls whether a process can gain more privileges than its parent process.
+    ## This bool directly controls whether the no_new_privs flag gets set on the container process.
+    ## allowPrivilegeEscalation is always true when the container is run as privileged, or has CAP_SYS_ADMIN
+    allowPrivilegeEscalation: false
+
+    ## Give a process some privileges, but not all the privileges of the root user.
+    capabilities:
+      ## Privileges to add.
+      # add: []
+      ## Privileges to drop.
+      drop:
+      - ALL
+
+    ## Mounts the container's root filesystem as read-only.
+    readOnlyRootFilesystem: true
+
+    ## To set the Seccomp profile for a Container, include the seccompProfile field in the securityContext section of your Pod or Container manifest.
+    ## The seccompProfile field is a SeccompProfile object consisting of type and localhostProfile. Valid options for type include RuntimeDefault, Unconfined, and Localhost.
+    ## localhostProfile must only be set set if type Localhost. It indicates the path of the pre-configured profile on the node, relative to the kubelet's configured Seccomp profile location (configured with the --root-dir flag).
+    # seccompProfile:
+    #  type: RuntimeDefault
+
+  ## Defines the annotations to add to the workload
+  # annotations: {}
+
+  ## Whether to deploy ServiceMonitors into the cluster for this component
+  ## Requires the ServiceMonitor CRDs to be in the cluster
+  serviceMonitors:
+    enabled: true
+
+  ## Defines additional environment variables to be injected onto this workload
+  ## e.g.
+  ## extraEnv:
+  ## - name: FOO
+  ##   value: "bar"
+  extraEnv: []
+
+  ## The list of hosts aliases to configure on the pod spec.
+  ## It should be avoid as much as possible to use this feature.
+  ## Please prefer using an DNS entry to resolve your hostnames.
+  ## This can be used as a workaround when entries cannot be resolved using DNS, for example for our automated testings.
+  ## e.g.
+  ## hostAliases:
+  ## - ip: 192.0.2.1  # An IP resolution to add to /etc/hosts
+  ##   # A list of hostnames to be associated with the above IP
+  ##   hostnames:
+  ##   - ess.localhost
+  ##   - synapse.ess.localhost
+  hostAliases: []
+
+  ## Configuration of the thresholds and frequencies of the livenessProbe
+  livenessProbe:
+    ## How many consecutive failures for the probe to be considered failed
+    failureThreshold: 9
+
+    ## Number of seconds after the container has started before the probe starts
+    initialDelaySeconds: 0
+
+    ## How often (in seconds) to perform the probe
+    periodSeconds: 10
+
+    ## How many consecutive successes for the probe to be consider successful after having failed
+    successThreshold: 1
+
+    ## Number of seconds after which the probe times out
+    timeoutSeconds: 1
+
+  ## Configuration of the thresholds and frequencies of the readinessProbe
+  readinessProbe:
+    ## How many consecutive failures for the probe to be considered failed
+    failureThreshold: 9
+
+    ## Number of seconds after the container has started before the probe starts
+    initialDelaySeconds: 0
+
+    ## How often (in seconds) to perform the probe
+    periodSeconds: 10
+
+    ## How many consecutive successes for the probe to be consider successful after having failed
+    successThreshold: 1
+
+    ## Number of seconds after which the probe times out
+    timeoutSeconds: 1
+
+  ## Configuration of the thresholds and frequencies of the startupProbe
+  startupProbe:
+    ## How many consecutive failures for the probe to be considered failed
+    failureThreshold: 9
+
+    ## Number of seconds after the container has started before the probe starts
+    initialDelaySeconds: 0
+
+    ## How often (in seconds) to perform the probe
+    periodSeconds: 10
+
+    ## How many consecutive successes for the probe to be consider successful after having failed
+    successThreshold: 1
+
+    ## Number of seconds after which the probe times out
+    timeoutSeconds: 1
+
 matrixAuthenticationService:
   enabled: true
   # Details of the image to be used
@@ -1675,7 +2223,7 @@ matrixAuthenticationService:
 
     ## The tag of the container image to use.
     ## One of tag or digest must be provided.
-    tag: "1.8.0"
+    tag: "1.10.0"
 
     ## Container digest to use. Used to pull the image instead of the image tag if set
     ## The tag will still be set as the app.kubernetes.io/version label
@@ -1835,6 +2383,14 @@ matrixAuthenticationService:
     # tlsSecret:
 
     ## How the Service behind this Ingress is constructed
+    # service:
+    #   type: ClusterIP
+    #   annotations: {}
+    #   # External traffic policy will be configured on services of type `NodePort` and `LoadBalancer`
+    #   externalTrafficPolicy: Cluster
+    #   internalTrafficPolicy: Cluster
+    #   # External IPs addresses of this service.
+    #   externalIPs: []
     service: {}
     ## If set, some tweaks will be applied automatically to ingresses based on the controller type here.
     ## This can be set to `ingress-nginx`.
@@ -2002,6 +2558,19 @@ matrixAuthenticationService:
   ##   value: "bar"
   extraEnv: []
 
+  # Extra volumes to mount in Matrix Authentication Service, as a yaml array
+  # This supports helm templating
+  extraVolumes: []
+
+
+  # Extra volumes to mount in Matrix Authentication Service, as a yaml array
+  extraVolumeMounts: []
+
+
+  # Extra initContainers to add to Matrix Authentication Service, as a yaml array
+  extraInitContainers: []
+
+
   ## Configuration of the thresholds and frequencies of the livenessProbe
   livenessProbe:
     ## How many consecutive failures for the probe to be considered failed
@@ -2081,7 +2650,7 @@ matrixAuthenticationService:
 
       ## The tag of the container image to use.
       ## One of tag or digest must be provided.
-      tag: "1.8.0-debug"
+      tag: "1.10.0-debug"
 
       ## Container digest to use. Used to pull the image instead of the image tag if set
       ## The tag will still be set as the app.kubernetes.io/version label
@@ -2201,6 +2770,16 @@ matrixAuthenticationService:
     ## - name: FOO
     ##   value: "bar"
     extraEnv: []
+    # Extra volumes to mount in Syn2Mas, as a yaml array
+    # This supports helm templating
+    extraVolumes: []
+
+    # Extra volumes to mount in Syn2Mas, as a yaml array
+    extraVolumeMounts: []
+
+    # Extra initContainers to add to Syn2Mas, as a yaml array
+    extraInitContainers: []
+
     ## Workload tolerations allows Pods that are part of this (sub)component to 'tolerate' any taint that matches the triple <key,value,effect> using the matching operator <operator>.
     ##
     ## * effect indicates the taint effect to match. Empty means match all taint effects. When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
@@ -2277,6 +2856,9 @@ postgres:
       ## Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
       limits:
         memory: 500Mi
+    # Extra volumes to mount in PostgresExporter, as a yaml array
+    extraVolumeMounts: []
+
     ## A subset of SecurityContext. ContainersSecurityContext holds pod-level security attributes and common container settings
     containersSecurityContext:
       ## Controls whether a process can gain more privileges than its parent process.
@@ -2442,6 +3024,16 @@ postgres:
   ## - name: FOO
   ##   value: "bar"
   extraEnv: []
+  # Extra volumes to mount in Postgres, as a yaml array
+  # This supports helm templating
+  extraVolumes: []
+
+  # Extra volumes to mount in Postgres, as a yaml array
+  extraVolumeMounts: []
+
+  # Extra initContainers to add to Postgres, as a yaml array
+  extraInitContainers: []
+
   ## Labels to add to all manifest for this component
   labels: {}
   ## Defines the annotations to add to the workload
@@ -2610,6 +3202,230 @@ postgres:
   startupProbe:
     ## How many consecutive failures for the probe to be considered failed
     failureThreshold: 8
+
+    ## Number of seconds after the container has started before the probe starts
+    initialDelaySeconds: 0
+
+    ## How often (in seconds) to perform the probe
+    periodSeconds: 10
+
+    ## How many consecutive successes for the probe to be consider successful after having failed
+    successThreshold: 1
+
+    ## Number of seconds after which the probe times out
+    timeoutSeconds: 1
+
+redis:
+  # redis maxmemory and maxmemory-policy settings. See https://redis.io/docs/latest/develop/reference/eviction/
+  # This value should be updated with changes to Redis' memory requests and limits below
+  maxMemory: 40mb
+  maxMemoryPolicy: allkeys-lru
+  # Details of the image to be used
+  image:
+    ## The host and (optional) port of the container image registry for this component.
+    ## If not specified Docker Hub is implied
+    registry: docker.io
+
+    ## The path in the registry where the container image is located
+    repository: library/redis
+
+    ## The tag of the container image to use.
+    ## One of tag or digest must be provided.
+    tag: "7.4-alpine"
+
+    ## Container digest to use. Used to pull the image instead of the image tag if set
+    ## The tag will still be set as the app.kubernetes.io/version label
+    # digest:
+
+    ## Whether the image should be pulled on container startup. Valid values are Always, IfNotPresent and Never
+    ## If this isn't provided it defaults to Always when using the image tag or IfNotPresent if using a digest
+    # pullPolicy:
+
+    ## A list of pull secrets to use for this image
+    ## e.g.
+    ## pullSecrets:
+    ## - name: dockerhub
+    pullSecrets: []
+  ## Labels to add to all manifest for this component
+  labels: {}
+  ## Defines the annotations to add to the workload
+  # annotations: {}
+  ## A subset of SecurityContext. ContainersSecurityContext holds pod-level security attributes and common container settings
+  containersSecurityContext:
+    ## Controls whether a process can gain more privileges than its parent process.
+    ## This bool directly controls whether the no_new_privs flag gets set on the container process.
+    ## allowPrivilegeEscalation is always true when the container is run as privileged, or has CAP_SYS_ADMIN
+    allowPrivilegeEscalation: false
+
+    ## Give a process some privileges, but not all the privileges of the root user.
+    capabilities:
+      ## Privileges to add.
+      # add: []
+      ## Privileges to drop.
+      drop:
+      - ALL
+
+    ## Mounts the container's root filesystem as read-only.
+    readOnlyRootFilesystem: true
+
+    ## To set the Seccomp profile for a Container, include the seccompProfile field in the securityContext section of your Pod or Container manifest.
+    ## The seccompProfile field is a SeccompProfile object consisting of type and localhostProfile. Valid options for type include RuntimeDefault, Unconfined, and Localhost.
+    ## localhostProfile must only be set set if type Localhost. It indicates the path of the pre-configured profile on the node, relative to the kubelet's configured Seccomp profile location (configured with the --root-dir flag).
+    # seccompProfile:
+    #  type: RuntimeDefault
+  ## Defines additional environment variables to be injected onto this workload
+  ## e.g.
+  ## extraEnv:
+  ## - name: FOO
+  ##   value: "bar"
+  extraEnv: []
+  # Extra volumes to mount in , as a yaml array
+  # This supports helm templating
+  extraVolumes: []
+
+  # Extra volumes to mount in , as a yaml array
+  extraVolumeMounts: []
+
+  # Extra initContainers to add to Redis, as a yaml array
+  extraInitContainers: []
+
+  ## NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+  nodeSelector: {}
+  ## A subset of PodSecurityContext. PodSecurityContext holds pod-level security attributes and common container settings
+  podSecurityContext:
+    ## A special supplemental group that applies to all containers in a pod. Some volume types allow the Kubelet to
+    ## change the ownership of that volume to be owned by the pod:
+    ##
+    ## 1. The owning GID will be the FSGroup
+    ## 2. The setgid bit is set (new files created in the volume will be owned by FSGroup)## 3. The permission bits are OR'd with rw-rw----
+    ##
+    ## If unset, the Kubelet will not modify the ownership and permissions of any volume.
+    fsGroup: 10002
+
+    ## fsGroupChangePolicy defines behavior of changing ownership and permission of the volume before being exposed inside Pod.
+    ## This field will only apply to volume types which support fsGroup based ownership(and permissions).
+    ## It will have no effect on ephemeral volume types such as: secret, configmaps and emptydir. Valid values are "OnRootMismatch" and "Always". If not specified, "Always" is used.
+    # fsGroupChangePolicy:
+
+    ## The GID to run the entrypoint of the container process. Uses runtime default if unset.
+    runAsGroup: 10002
+
+    ## Indicates that the container must run as a non-root user. If true, the Kubelet will validate the image at runtime to ensure that it does not run as UID 0 (root) and fail to start the container if it does. If unset or false, no such validation will be performed.
+    runAsNonRoot: true
+
+    ## The UID to run the entrypoint of the container process. Defaults to user specified in image metadata if unspecified.
+    runAsUser: 10002
+
+    ## SELinuxOptions are the labels to be applied to all the pod containers
+    # seLinuxOptions:
+      ## Level is SELinux level label that applies to the container.
+      # level:
+
+      ## Role is a SELinux role label that applies to the container.
+      # role:
+
+      ## Type is a SELinux type label that applies to the container.
+      # type:
+
+      ## User is a SELinux user label that applies to the container.
+      # user:
+
+    ## "To set the Seccomp profile for a Container, include the seccompProfile field in the securityContext section of your Pod or Container manifest.
+    ## The seccompProfile field is a SeccompProfile object consisting of type and localhostProfile.
+    ## Valid options for type include RuntimeDefault, Unconfined, and Localhost. localhostProfile must only be set set if type Localhost.
+    ## It indicates the path of the pre-configured profile on the node, relative to the kubelet's configured Seccomp profile location (configured with the --root-dir flag).
+    seccompProfile:
+      # localhostProfile:
+      type: RuntimeDefault
+
+    ## A list of groups applied to the first process run in each container, in addition to the container's primary GID.
+    ## If unspecified, no groups will be added to any container.
+    supplementalGroups: []
+  ## Kubernetes resources to allocate to each instance.
+  resources:
+    ## Requests describes the minimum amount of compute resources required. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
+    requests:
+      memory: 50Mi
+      cpu: 50m
+
+    ## Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
+    limits:
+      memory: 50Mi
+  ## Controls configuration of the ServiceAccount for this component
+  serviceAccount:
+    ## Whether a ServiceAccount should be created by the chart or not
+    create: true
+
+    ## What name to give the ServiceAccount. If not provided the chart will provide the name automatically
+    name: ""
+
+    ## Annotations to add to the service account
+    annotations: {}
+  ## Workload tolerations allows Pods that are part of this (sub)component to 'tolerate' any taint that matches the triple <key,value,effect> using the matching operator <operator>.
+  ##
+  ## * effect indicates the taint effect to match. Empty means match all taint effects. When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
+  ## * key is the taint key that the toleration applies to. Empty means match all taint keys. If the key is empty, operator must be Exists; this combination means to match all values and all keys.
+  ## * operator represents a key's relationship to the value. Valid operators are Exists and Equal. Defaults to Equal. Exists is equivalent to wildcard for value, so that a pod can tolerate all taints of a particular category.
+  ## * value is the taint value the toleration matches to. If the operator is Exists, the value should be empty, otherwise just a regular string.
+  ##
+  ## * tolerationSeconds represents the period of time the toleration (which must be of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default, it is not set, which means tolerate the taint forever (do not evict). Zero and negative values will be treated as 0 (evict immediately) by the system.
+  ## e.g.
+  ## tolerations:
+  ## - effect:
+  ##   key:
+  ##   operator:
+  ##   value:
+
+  tolerations: []
+  ## TopologySpreadConstraints describes how Pods for this component should be spread between nodes.
+  ## https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/ for in-depth details
+  ## labelSelector & whenUnsatisfiable can be omitted and the chart will populate a sensible value for this component.
+  ## Similarly `pod-template-hash` will be aded to `matchLabelKeys` if appropriate for this component.
+  ## If any TopologySpreadConstraints are provided for a component any global TopologySpreadConstraints are ignored for that component.
+  ## e.g.
+  ## topologySpreadConstraints:
+  ## - maxSkew: 1
+  ##   topologyKey: topology.kubernetes.io/zone
+  ##   # nodeAffinityPolicy: Honor/Ignore
+  ##   # nodeTaintsPolicy: Honor/Ignore
+  ##   # whenUnsatisfiable: DoNotSchedule/ScheduleAnyway
+  topologySpreadConstraints: []
+  ## Configuration of the thresholds and frequencies of the livenessProbe
+  livenessProbe:
+    ## How many consecutive failures for the probe to be considered failed
+    failureThreshold: 3
+
+    ## Number of seconds after the container has started before the probe starts
+    initialDelaySeconds: 0
+
+    ## How often (in seconds) to perform the probe
+    periodSeconds: 10
+
+    ## How many consecutive successes for the probe to be consider successful after having failed
+    successThreshold: 1
+
+    ## Number of seconds after which the probe times out
+    timeoutSeconds: 1
+  ## Configuration of the thresholds and frequencies of the readinessProbe
+  readinessProbe:
+    ## How many consecutive failures for the probe to be considered failed
+    failureThreshold: 3
+
+    ## Number of seconds after the container has started before the probe starts
+    initialDelaySeconds: 0
+
+    ## How often (in seconds) to perform the probe
+    periodSeconds: 10
+
+    ## How many consecutive successes for the probe to be consider successful after having failed
+    successThreshold: 1
+
+    ## Number of seconds after which the probe times out
+    timeoutSeconds: 1
+  ## Configuration of the thresholds and frequencies of the startupProbe
+  startupProbe:
+    ## How many consecutive failures for the probe to be considered failed
+    failureThreshold: 5
 
     ## Number of seconds after the container has started before the probe starts
     initialDelaySeconds: 0
@@ -4036,7 +4852,7 @@ synapse:
 
     ## The tag of the container image to use.
     ## One of tag or digest must be provided.
-    tag: "v1.144.0-ess.2"
+    tag: "v1.146.0-ess.1"
 
     ## Container digest to use. Used to pull the image instead of the image tag if set
     ## The tag will still be set as the app.kubernetes.io/version label
@@ -4051,6 +4867,22 @@ synapse:
     ## pullSecrets:
     ## - name: dockerhub
     pullSecrets: []
+  # Extra volumes to mount in Synapse, as a yaml array
+  # This supports helm templating
+  # For each extra volume, specify `mountContext` to `hook`, `runtime` or `both` to specify
+  # if it has to be mounted in hook jobs, runtime only, or both.
+  # Defaults to "both".
+  extraVolumes: []
+
+  # Extra volumes to mount in Synapse, as a yaml array
+  # For each extra volume mount, specify `mountContext` to `hook`, `runtime` or `both` to specify
+  # if it has to be mounted in hook jobs, runtime only, or both..
+  # Defaults to "both".
+  extraVolumeMounts: []
+
+  # Extra initContainers to add to Synapse, as a yaml array
+  extraInitContainers: []
+
   ## How this ingress should be constructed
   ingress:
     ## What hostname should be used for this Ingress
@@ -4069,6 +4901,14 @@ synapse:
     # tlsSecret:
 
     ## How the Service behind this Ingress is constructed
+    # service:
+    #   type: ClusterIP
+    #   annotations: {}
+    #   # External traffic policy will be configured on services of type `NodePort` and `LoadBalancer`
+    #   externalTrafficPolicy: Cluster
+    #   internalTrafficPolicy: Cluster
+    #   # External IPs addresses of this service.
+    #   externalIPs: []
     service: {}
     ## If set, some tweaks will be applied automatically to ingresses based on the controller type here.
     ## This can be set to `ingress-nginx`.
@@ -4275,216 +5115,6 @@ synapse:
   ## Extra command line arguments to provide to Synapse
   extraArgs: []
 
-  redis:
-    # Details of the image to be used
-    image:
-      ## The host and (optional) port of the container image registry for this component.
-      ## If not specified Docker Hub is implied
-      registry: docker.io
-
-      ## The path in the registry where the container image is located
-      repository: library/redis
-
-      ## The tag of the container image to use.
-      ## One of tag or digest must be provided.
-      tag: "7.4-alpine"
-
-      ## Container digest to use. Used to pull the image instead of the image tag if set
-      ## The tag will still be set as the app.kubernetes.io/version label
-      # digest:
-
-      ## Whether the image should be pulled on container startup. Valid values are Always, IfNotPresent and Never
-      ## If this isn't provided it defaults to Always when using the image tag or IfNotPresent if using a digest
-      # pullPolicy:
-
-      ## A list of pull secrets to use for this image
-      ## e.g.
-      ## pullSecrets:
-      ## - name: dockerhub
-      pullSecrets: []
-    ## Labels to add to all manifest for this component
-    labels: {}
-    ## Defines the annotations to add to the workload
-    # annotations: {}
-    ## A subset of SecurityContext. ContainersSecurityContext holds pod-level security attributes and common container settings
-    containersSecurityContext:
-      ## Controls whether a process can gain more privileges than its parent process.
-      ## This bool directly controls whether the no_new_privs flag gets set on the container process.
-      ## allowPrivilegeEscalation is always true when the container is run as privileged, or has CAP_SYS_ADMIN
-      allowPrivilegeEscalation: false
-
-      ## Give a process some privileges, but not all the privileges of the root user.
-      capabilities:
-        ## Privileges to add.
-        # add: []
-        ## Privileges to drop.
-        drop:
-        - ALL
-
-      ## Mounts the container's root filesystem as read-only.
-      readOnlyRootFilesystem: true
-
-      ## To set the Seccomp profile for a Container, include the seccompProfile field in the securityContext section of your Pod or Container manifest.
-      ## The seccompProfile field is a SeccompProfile object consisting of type and localhostProfile. Valid options for type include RuntimeDefault, Unconfined, and Localhost.
-      ## localhostProfile must only be set set if type Localhost. It indicates the path of the pre-configured profile on the node, relative to the kubelet's configured Seccomp profile location (configured with the --root-dir flag).
-      # seccompProfile:
-      #  type: RuntimeDefault
-    ## Defines additional environment variables to be injected onto this workload
-    ## e.g.
-    ## extraEnv:
-    ## - name: FOO
-    ##   value: "bar"
-    extraEnv: []
-    ## NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
-    nodeSelector: {}
-    ## A subset of PodSecurityContext. PodSecurityContext holds pod-level security attributes and common container settings
-    podSecurityContext:
-      ## A special supplemental group that applies to all containers in a pod. Some volume types allow the Kubelet to
-      ## change the ownership of that volume to be owned by the pod:
-      ##
-      ## 1. The owning GID will be the FSGroup
-      ## 2. The setgid bit is set (new files created in the volume will be owned by FSGroup)## 3. The permission bits are OR'd with rw-rw----
-      ##
-      ## If unset, the Kubelet will not modify the ownership and permissions of any volume.
-      fsGroup: 10002
-
-      ## fsGroupChangePolicy defines behavior of changing ownership and permission of the volume before being exposed inside Pod.
-      ## This field will only apply to volume types which support fsGroup based ownership(and permissions).
-      ## It will have no effect on ephemeral volume types such as: secret, configmaps and emptydir. Valid values are "OnRootMismatch" and "Always". If not specified, "Always" is used.
-      # fsGroupChangePolicy:
-
-      ## The GID to run the entrypoint of the container process. Uses runtime default if unset.
-      runAsGroup: 10002
-
-      ## Indicates that the container must run as a non-root user. If true, the Kubelet will validate the image at runtime to ensure that it does not run as UID 0 (root) and fail to start the container if it does. If unset or false, no such validation will be performed.
-      runAsNonRoot: true
-
-      ## The UID to run the entrypoint of the container process. Defaults to user specified in image metadata if unspecified.
-      runAsUser: 10002
-
-      ## SELinuxOptions are the labels to be applied to all the pod containers
-      # seLinuxOptions:
-        ## Level is SELinux level label that applies to the container.
-        # level:
-
-        ## Role is a SELinux role label that applies to the container.
-        # role:
-
-        ## Type is a SELinux type label that applies to the container.
-        # type:
-
-        ## User is a SELinux user label that applies to the container.
-        # user:
-
-      ## "To set the Seccomp profile for a Container, include the seccompProfile field in the securityContext section of your Pod or Container manifest.
-      ## The seccompProfile field is a SeccompProfile object consisting of type and localhostProfile.
-      ## Valid options for type include RuntimeDefault, Unconfined, and Localhost. localhostProfile must only be set set if type Localhost.
-      ## It indicates the path of the pre-configured profile on the node, relative to the kubelet's configured Seccomp profile location (configured with the --root-dir flag).
-      seccompProfile:
-        # localhostProfile:
-        type: RuntimeDefault
-
-      ## A list of groups applied to the first process run in each container, in addition to the container's primary GID.
-      ## If unspecified, no groups will be added to any container.
-      supplementalGroups: []
-    ## Kubernetes resources to allocate to each instance.
-    resources:
-      ## Requests describes the minimum amount of compute resources required. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
-      requests:
-        memory: 50Mi
-        cpu: 50m
-
-      ## Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
-      limits:
-        memory: 50Mi
-    ## Controls configuration of the ServiceAccount for this component
-    serviceAccount:
-      ## Whether a ServiceAccount should be created by the chart or not
-      create: true
-
-      ## What name to give the ServiceAccount. If not provided the chart will provide the name automatically
-      name: ""
-
-      ## Annotations to add to the service account
-      annotations: {}
-    ## Workload tolerations allows Pods that are part of this (sub)component to 'tolerate' any taint that matches the triple <key,value,effect> using the matching operator <operator>.
-    ##
-    ## * effect indicates the taint effect to match. Empty means match all taint effects. When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
-    ## * key is the taint key that the toleration applies to. Empty means match all taint keys. If the key is empty, operator must be Exists; this combination means to match all values and all keys.
-    ## * operator represents a key's relationship to the value. Valid operators are Exists and Equal. Defaults to Equal. Exists is equivalent to wildcard for value, so that a pod can tolerate all taints of a particular category.
-    ## * value is the taint value the toleration matches to. If the operator is Exists, the value should be empty, otherwise just a regular string.
-    ##
-    ## * tolerationSeconds represents the period of time the toleration (which must be of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default, it is not set, which means tolerate the taint forever (do not evict). Zero and negative values will be treated as 0 (evict immediately) by the system.
-    ## e.g.
-    ## tolerations:
-    ## - effect:
-    ##   key:
-    ##   operator:
-    ##   value:
-
-    tolerations: []
-    ## TopologySpreadConstraints describes how Pods for this component should be spread between nodes.
-    ## https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/ for in-depth details
-    ## labelSelector & whenUnsatisfiable can be omitted and the chart will populate a sensible value for this component.
-    ## Similarly `pod-template-hash` will be aded to `matchLabelKeys` if appropriate for this component.
-    ## If any TopologySpreadConstraints are provided for a component any global TopologySpreadConstraints are ignored for that component.
-    ## e.g.
-    ## topologySpreadConstraints:
-    ## - maxSkew: 1
-    ##   topologyKey: topology.kubernetes.io/zone
-    ##   # nodeAffinityPolicy: Honor/Ignore
-    ##   # nodeTaintsPolicy: Honor/Ignore
-    ##   # whenUnsatisfiable: DoNotSchedule/ScheduleAnyway
-    topologySpreadConstraints: []
-    ## Configuration of the thresholds and frequencies of the livenessProbe
-    livenessProbe:
-      ## How many consecutive failures for the probe to be considered failed
-      failureThreshold: 3
-
-      ## Number of seconds after the container has started before the probe starts
-      initialDelaySeconds: 0
-
-      ## How often (in seconds) to perform the probe
-      periodSeconds: 10
-
-      ## How many consecutive successes for the probe to be consider successful after having failed
-      successThreshold: 1
-
-      ## Number of seconds after which the probe times out
-      timeoutSeconds: 1
-    ## Configuration of the thresholds and frequencies of the readinessProbe
-    readinessProbe:
-      ## How many consecutive failures for the probe to be considered failed
-      failureThreshold: 3
-
-      ## Number of seconds after the container has started before the probe starts
-      initialDelaySeconds: 0
-
-      ## How often (in seconds) to perform the probe
-      periodSeconds: 10
-
-      ## How many consecutive successes for the probe to be consider successful after having failed
-      successThreshold: 1
-
-      ## Number of seconds after which the probe times out
-      timeoutSeconds: 1
-    ## Configuration of the thresholds and frequencies of the startupProbe
-    startupProbe:
-      ## How many consecutive failures for the probe to be considered failed
-      failureThreshold: 5
-
-      ## Number of seconds after the container has started before the probe starts
-      initialDelaySeconds: 0
-
-      ## How often (in seconds) to perform the probe
-      periodSeconds: 10
-
-      ## How many consecutive successes for the probe to be consider successful after having failed
-      successThreshold: 1
-
-      ## Number of seconds after which the probe times out
-      timeoutSeconds: 1
-
 wellKnownDelegation:
   enabled: true
 
@@ -4510,6 +5140,14 @@ wellKnownDelegation:
     # tlsSecret:
 
     ## How the Service behind this Ingress is constructed
+    # service:
+    #   type: ClusterIP
+    #   annotations: {}
+    #   # External traffic policy will be configured on services of type `NodePort` and `LoadBalancer`
+    #   externalTrafficPolicy: Cluster
+    #   internalTrafficPolicy: Cluster
+    #   # External IPs addresses of this service.
+    #   externalIPs: []
     service: {}
     ## If set, some tweaks will be applied automatically to ingresses based on the controller type here.
     ## This can be set to `ingress-nginx`.

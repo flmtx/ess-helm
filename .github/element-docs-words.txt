@@ -1,8 +1,10 @@
 Adminbot
 ansible
 Ansible
+appservice
 appservices
 Artifacthub
+asyncio
 checkov
 deployables
 dialog
@@ -10,6 +12,7 @@ Distroless
 dockerhub
 Gematik
 GHSA
+Hookshot
 homeserver
 Homeserver
 homeservers
@@ -32,3 +35,4 @@ shellcheck
 templatable
 towncrier
 Traefik
+Wifi

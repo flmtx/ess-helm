@@ -1,6 +1,6 @@
 <!--
 Copyright 2025 New Vector Ltd
-Copyright 2025 Element Creations Ltd
+Copyright 2025-2026 Element Creations Ltd
 
 SPDX-License-Identifier: AGPL-3.0-only
 -->
@@ -14,6 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 - [Monitoring](#monitoring)
 - [Components Configuration](#configuration)
    - [Configuring Element Web](#configuring-element-web)
+   - [Configuring Hookshot](#configuring-hookshot)
    - [Configuring Synapse](#configuring-synapse)
    - [Configuring Matrix Authentication Service](#configuring-matrix-authentication-service)
    - [Configuring Matrix RTC](#configuring-matrix-rtc)
@@ -82,7 +83,15 @@ If your cluster has [Prometheus Operator](https://github.com/prometheus-operator
 
 ## Configuration
 
-ESS Community allows you to easily configure its individual components. You basically have to create a values file for each component in which you specify your custom configuration. Below you  find sections for each component.
+ESS Community allows you to easily configure its individual components. You basically have to create a values file for each component in which you specify your custom configuration. Below you find sections for each component.
+
+Some component configuration options are controlled by the chart.
+These configuration options usually fall into one of the following categories:
+* Required configuration options, so that the chart can validate that they've been set at install time rather than the application failing at runtime.
+* Configuration options that are required to "wire-up" the component either to its dependencies or other configured components in the chart.
+* Configuration options that need to be consistently set in several places.
+
+Attempting to change these configuration options by the mechanism described below will appear to have no effect.
 
 **If you have created new values files for custom configuration, make sure to apply them by passing them with the helm upgrade command (see [Setting up the stack](#setting-up-the-stack)).**
 
@@ -101,6 +110,39 @@ elementWeb:
       }
 ```
 
+### Configuring Hookshot
+
+Hookshot is disabled by default and needs to be explicitly enabled.
+
+```yml
+hookshot:
+  enabled: true
+```
+
+Hookshot configuration is written in YAML. The documentation can be found in the [Hookshot website](https://matrix-org.github.io/matrix-hookshot/latest/setup/sample-configuration.html)
+
+Below is an example configuration enabling generic webhooks:
+
+```yml
+hookshot:
+  additional:
+    user-config.yaml:
+      config: |
+        generic:
+          enabled: true
+          allowJsTransformationFunctions: false
+          waitForComplete: true
+          enableHttpGet: false
+```
+
+Note that by default, Hookshot will be setup behind Synapse hostname unless configured with a dedicated ingress :
+
+```yml
+hookshot:
+  ingress:
+    host: <hookshot domain name>
+```
+
 ### Configuring Synapse
 
 Synapse configuration is written in YAML. The documentation can be found [here](https://element-hq.github.io/synapse/latest/usage/configuration/config_documentation.html).
@@ -113,6 +155,10 @@ synapse:
         # Add your settings below, taking care of the spacing indentation
         some: settings
 ```
+
+One common Synapse configuration option that can't be set by this mechanism is `max_upload_size`.
+This is controlled by `synapse.media.maxUploadSize`.
+This is so that Ingress controller specific annotations can be adjusted to match.
 
 ### Configuring Matrix Authentication Service
 
@@ -188,4 +234,27 @@ matrixRTC:
           rtc:
             stun_servers:
             - "example.com:3478"
+```
+
+#### Enable Turn-TLS behind Traefik
+
+For Turn-TLS to work behind Traefik, you need to create the following manifest :
+
+```yml
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: ess-turn-tls
+  namespace: ess
+spec:
+  entryPoints:
+    - websecure
+  routes:
+  - match: HostSNI(`< .matrixRTC.sfu.exposedServices.turnTLS.domain >`)
+    priority: 10
+    services:
+    - name: ess-matrix-rtc-sfu-turn-tls
+      port: < .matrixRTC.sfu.exposedServices.turnTLS.port >
+  tls:
+    passthrough: true
 ```

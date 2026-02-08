@@ -1,6 +1,6 @@
 {{- /*
 Copyright 2025 New Vector Ltd
-Copyright 2025 Element Creations Ltd
+Copyright 2025-2026 Element Creations Ltd
 
 SPDX-License-Identifier: AGPL-3.0-only
 */ -}}
@@ -39,6 +39,10 @@ spec:
     spec:
       restartPolicy: OnFailure
 {{- include "element-io.ess-library.pods.commonSpec" (dict "root" $ "context" (dict "componentValues" . "instanceSuffix" (printf "deployment-markers-%s" $step) "deployment" false "usesMatrixTools" true "mountServiceAccountToken" true)) | nindent 6 }}
+{{- with .extraInitContainers }}
+      initContainers:
+      {{- toYaml . | nindent 6 }}
+{{- end }}
       containers:
       - name: deployment-markers
         {{- include "element-io.ess-library.pods.image" (dict "root" $ "context" $.Values.matrixTools.image) | nindent 8 }}
@@ -59,6 +63,18 @@ spec:
         - {{ include "element-io.deployment-markers.markers" (dict "root" $) | fromYamlArray | join "," | quote }}
         - "-labels"
         - {{ include "element-io.deployment-markers.configmap-labels" (dict "root" $ "context" (dict "labels" .labels "withChartVersion" false)) | trim  | replace ": " "="| replace "\n" "," | replace "\"" "" | quote }}
+{{- with .extraVolumeMounts }}
+        volumeMounts:
+{{- range . }}
+        - {{ (. | toYaml) | nindent 10 }}
+{{- end }}
+{{- end }}
+{{- with .extraVolumes }}
+      volumes:
+{{- range . }}
+      - {{- (tpl (. | toYaml) $) | nindent 8 }}
+{{- end }}
+{{- end }}
 ---
 {{- end -}}
 {{- end -}}

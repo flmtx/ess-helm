@@ -1,13 +1,13 @@
 {#
 Copyright 2024-2025 New Vector Ltd
-Copyright 2025 Element Creations Ltd
+Copyright 2025-2026 Element Creations Ltd
 
 SPDX-License-Identifier: AGPL-3.0-only
 #}
 
 {% import "common/sub_schema_values.yaml.j2" as sub_schema_values %}
 enabled: true
-{{- sub_schema_values.image(registry='ghcr.io', repository='element-hq/matrix-authentication-service', tag='1.8.0') }}
+{{- sub_schema_values.image(registry='ghcr.io', repository='element-hq/matrix-authentication-service', tag='1.10.0') }}
 
 replicas: 1
 
@@ -39,6 +39,9 @@ privateKeys:
 {{ sub_schema_values.workloadAnnotations() }}
 {{ sub_schema_values.serviceMonitors() }}
 {{ sub_schema_values.extraEnv() }}
+{{ sub_schema_values.extraVolumes("Matrix Authentication Service") }}
+{{ sub_schema_values.extraVolumeMounts("Matrix Authentication Service") }}
+{{ sub_schema_values.extraInitContainers("Matrix Authentication Service") }}
 {{ sub_schema_values.probe("liveness") }}
 {{ sub_schema_values.probe("readiness") }}
 {{ sub_schema_values.probe("startup", failureThreshold=4) }}
@@ -60,7 +63,7 @@ syn2mas:
   enabled: false
 
   # Syn2Mas relies on the debug image to copy mas-cli to the matrix-tools container
-  {{- sub_schema_values.image(registry='ghcr.io', repository='element-hq/matrix-authentication-service', tag='1.8.0-debug') | indent(2) }}
+  {{- sub_schema_values.image(registry='ghcr.io', repository='element-hq/matrix-authentication-service', tag='1.10.0-debug') | indent(2) }}
   {{- sub_schema_values.labels() | indent(2) -}}
   {{- sub_schema_values.workloadAnnotations() | indent(2) -}}
   {{- sub_schema_values.containersSecurityContext() | indent(2) -}}
@@ -69,6 +72,9 @@ syn2mas:
   {{- sub_schema_values.resources(requests_memory='50Mi', requests_cpu='50m', limits_memory='350Mi') | indent(2) -}}
   {{- sub_schema_values.serviceAccount() | indent(2) -}}
   {{- sub_schema_values.extraEnv() | indent(2) -}}
+  {{- sub_schema_values.extraVolumes("Syn2Mas") | indent(2) -}}
+  {{- sub_schema_values.extraVolumeMounts("Syn2Mas") | indent(2) -}}
+  {{- sub_schema_values.extraInitContainers("Syn2Mas") | indent(2) -}}
   {{- sub_schema_values.tolerations() | indent(2) }}
   {{- sub_schema_values.topologySpreadConstraints() | indent(2) }}
 

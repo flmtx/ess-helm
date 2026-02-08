@@ -1,6 +1,6 @@
 {#
 Copyright 2024-2025 New Vector Ltd
-Copyright 2025 Element Creations Ltd
+Copyright 2025-2026 Element Creations Ltd
 
 SPDX-License-Identifier: AGPL-3.0-only
 #}
@@ -14,7 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 ## The matrix-tools image, used in multiple components
 matrixTools:
-{{ image(registry="ghcr.io", repository="element-hq/ess-helm/matrix-tools", tag="0.5.8") | indent(2) }}
+{{ image(registry="ghcr.io", repository="element-hq/ess-helm/matrix-tools", tag="0.7.2") | indent(2) }}
 
 ## CertManager Issuer to configure by default automatically on all ingresses
 ## If configured, the chart will automatically generate the tlsSecret name for all ingresses
@@ -183,7 +183,20 @@ networking:
 {%- if global %}
   service:
     type: ClusterIP
+    ## Annotations to be added to {{ 'all Ingresses services. Will be merged with component specific Ingress services annotations' if global else 'this Ingress' }}
+    annotations: {}
+    # External traffic policy will be configured on services of type `NodePort` and `LoadBalancer`
+    externalTrafficPolicy: Cluster
+    internalTrafficPolicy: Cluster
 {%- else %}
+  # service:
+  #   type: ClusterIP
+  #   annotations: {}
+  #   # External traffic policy will be configured on services of type `NodePort` and `LoadBalancer`
+  #   externalTrafficPolicy: Cluster
+  #   internalTrafficPolicy: Cluster
+  #   # External IPs addresses of this service.
+  #   externalIPs: []
   service: {}
 {%- endif %}
   ## If set, some tweaks will be applied automatically to ingresses based on the controller type here.
@@ -439,22 +452,82 @@ networking:
 {{ key }}: {}
 {% endmacro %}
 
-{% macro exposedServicePort(name, port, portType='NodePort') %}
+{% macro extraVolumes(component, with_context=False) %}
+# Extra volumes to mount in {{ component }}, as a yaml array
+# This supports helm templating
+{%- if with_context %}
+# For each extra volume, specify `mountContext` to `hook`, `runtime` or `both` to specify
+# if it has to be mounted in hook jobs, runtime only, or both.
+# Defaults to "both".
+{%- endif %}
+extraVolumes: []
+{% endmacro %}
+
+{% macro extraVolumeMounts(component, with_context=False) %}
+# Extra volumes to mount in {{ component }}, as a yaml array
+{%- if with_context %}
+# For each extra volume mount, specify `mountContext` to `hook`, `runtime` or `both` to specify
+# if it has to be mounted in hook jobs, runtime only, or both..
+# Defaults to "both".
+{%- endif %}
+extraVolumeMounts: []
+{% endmacro %}
+
+{% macro extraInitContainers(component) %}
+# Extra initContainers to add to {{ component }}, as a yaml array
+extraInitContainers: []
+{% endmacro %}
+
+{% macro exposedServicePort(name, port, portType='NodePort', defaultEnabled=true, tlsSecret=false, nodePortTemplate='') %}
 {{ name }}:
-  enabled: true
-  # Either a NodePort or a HostPort
+  enabled: {{ 'true' if defaultEnabled else 'false' }}
+  # Annotations to be added to this service
+  # This is unused if the portType is `HostPort` as the pod port
+  # is exposed directly on the node running it, so no service is created.
+  annotations: {}
+  # Either a NodePort, HostPort or LoadBalancer
+  # If the port is a HostPort, no Service will be created.
   portType: {{ portType }}
+  # External IPs addresses of this service.
+  # externalIPs: []
+  # Node Port template value. If empty, `nodePort` wont be set on the service port
+  # And kubernetes will automatically assign a port.
+  nodePort: "{{ nodePortTemplate }}"
+  # Either Local or Cluster
+  internalTrafficPolicy: Cluster
+  externalTrafficPolicy: Cluster
   port: {{ port }}
+{% if tlsSecret %}
+  # The domain of the service
+  domain: ""
+  # The TLS secret used to expose this service
+  tlsSecret: ""
+{% endif %}
 {%- endmacro %}
 
-{% macro exposedServicePortRange(name, startPort, endPort, portType='NodePort') %}
+{% macro exposedServicePortRange(name, startPort, endPort, portType='NodePort', nodePortTemplate='') %}
 {{ name }}:
   enabled: false
-  # Either a NodePort or a HostPort
+  # Annotations to be added to this service
+  # This is unused if the portType is `HostPort` as the pod port
+  # is exposed directly on the node running it, so no service is created.
+  annotations: {}
+  # Either a NodePort, HostPort or LoadBalancer
+  # If the port is a HostPort, no Service will be created.
   portType: {{ portType }}
+  # External IPs addresses of this service.
+  # externalIPs: []
   portRange:
     # The beginning port of the range
     startPort: {{ startPort }}
     # The last port of the range
     endPort: {{ endPort }}
+    # Node Port template value.
+    # The template takes as argument :
+    # - "context" : This exposed service values context, in addition with a key "port"
+    #               containing current port number of the helm range
+    # - "root" : The $ helm root special context
+    # If empty, `nodePort` wont be set on the service port
+    # And kubernetes will automatically assign a port.
+    nodePort: "{{ nodePortTemplate }}"
 {%- endmacro %}
