@@ -1,6 +1,6 @@
 {{- /*
 Copyright 2025 New Vector Ltd
-Copyright 2025 Element Creations Ltd
+Copyright 2025-2026 Element Creations Ltd
 
 SPDX-License-Identifier: AGPL-3.0-only
 */ -}}
@@ -9,20 +9,10 @@ SPDX-License-Identifier: AGPL-3.0-only
 {{- $root := .root -}}
 {{- with required "element-io.matrix-rtc.labels missing context" .context -}}
 {{ include "element-io.ess-library.labels.common" (dict "root" $root "context" (dict "labels" .labels "withChartVersion" .withChartVersion)) }}
+{{ $suffix := .suffix | default "" }}
 app.kubernetes.io/component: matrix-rtc-voip-server
-app.kubernetes.io/name: matrix-rtc-sfu
-app.kubernetes.io/instance: {{ $root.Release.Name }}-matrix-rtc-sfu
-app.kubernetes.io/version: {{ include "element-io.ess-library.labels.makeSafe" .image.tag }}
-{{- end }}
-{{- end }}
-
-{{- define "element-io.matrix-rtc-sfu-rtc.labels" -}}
-{{- $root := .root -}}
-{{- with required "element-io.matrix-rtc.labels missing context" .context -}}
-{{ include "element-io.ess-library.labels.common" (dict "root" $root "context" (dict "labels" .labels)) }}
-app.kubernetes.io/component: matrix-rtc-voip-server
-app.kubernetes.io/name: matrix-rtc-sfu-rtc
-app.kubernetes.io/instance: {{ $root.Release.Name }}-matrix-rtc-sfu-rtc
+app.kubernetes.io/name: matrix-rtc-sfu{{ $suffix }}
+app.kubernetes.io/instance: {{ $root.Release.Name }}-matrix-rtc-sfu{{ $suffix }}
 app.kubernetes.io/version: {{ include "element-io.ess-library.labels.makeSafe" .image.tag }}
 {{- end }}
 {{- end }}

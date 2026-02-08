@@ -1,6 +1,6 @@
 {{- /*
 Copyright 2024-2025 New Vector Ltd
-Copyright 2025 Element Creations Ltd
+Copyright 2025-2026 Element Creations Ltd
 
 SPDX-License-Identifier: AGPL-3.0-only
 */ -}}
@@ -75,21 +75,6 @@ k8s.element.io/synapse-instance: {{ $root.Release.Name }}-synapse
 {{- end }}
 {{- end }}
 
-{{- define "element-io.synapse-redis.labels" -}}
-{{- $root := .root -}}
-{{- with required "element-io.synapse-redis.labels missing context" .context -}}
-{{ include "element-io.ess-library.labels.common" (dict "root" $root "context" (dict "labels" .labels "withChartVersion" .withChartVersion)) }}
-app.kubernetes.io/component: matrix-server-pubsub
-app.kubernetes.io/name: synapse-redis
-app.kubernetes.io/instance: {{ $root.Release.Name }}-synapse-redis
-app.kubernetes.io/version: {{ include "element-io.ess-library.labels.makeSafe" .image.tag }}
-{{- end }}
-{{- end }}
-
-{{- define "element-io.synapse-redis.overrideEnv" }}
-env: []
-{{- end -}}
-
 {{- define "element-io.synapse.enabledWorkers" -}}
 {{- $root := .root -}}
 {{ $enabledWorkers := dict }}
@@ -136,6 +121,20 @@ env:
 {{- end }}
 {{- end }}
 {{- end }}
+{{- if and $root.Values.hookshot.enabled (not $root.Values.hookshot.ingress.host) }}
+- path: "/_matrix/hookshot/widgetapi/v1"
+  availability: only_externally
+  service:
+    name: "{{ $root.Release.Name }}-hookshot"
+    port:
+      name: widgets
+- path: "/_matrix/hookshot"
+  availability: only_externally
+  service:
+    name: "{{ $root.Release.Name }}-hookshot"
+    port:
+      name: webhooks
+{{- end -}}
 {{- range $root.Values.synapse.ingress.additionalPaths }}
 - {{ . | toYaml | indent 2 | trim }}
 {{- end -}}
@@ -215,13 +214,6 @@ log_config.yaml: |
 {{- end }}
 
 
-{{- define "element-io.synapse-redis.configmap-data" -}}
-{{- $root := .root -}}
-redis.conf: |
-{{- ($root.Files.Get "configs/synapse/redis.conf") | nindent 2 -}}
-{{- end -}}
-
-
 {{- define "element-io.synapse-haproxy.configmap-data" -}}
 {{- $root := .root -}}
 429.http: |
@@ -235,6 +227,36 @@ When we have a process to watch for file changes and send a reload signal to HAP
 ess-version.json: |
   {"version": "{{ $root.Chart.Version }}", "edition": "community"}
 {{- end -}}
+
+
+{{- define "element-io.synapse.appservices-config-files" -}}
+{{- $root := .root -}}
+{{- with required "element-io.synapse.appservices requires context" .context }}
+{{- $isHook := required "element-io.synapse.appservices context requires isHook" .isHook -}}
+{{- $appservicesFiles := list -}}
+{{- range $idx, $appservice := $root.Values.synapse.appservices }}
+{{- if $appservice.configMap }}
+{{ $appservicesFiles = append $appservicesFiles (printf "/as/%d/%s" $idx $appservice.configMapKey) }}
+{{- else }}
+{{ $appservicesFiles = append $appservicesFiles (printf "/as/%d/%s" $idx $appservice.secretKey) }}
+{{- end }}
+{{- end }}
+{{- if $root.Values.hookshot.enabled -}}
+{{- $appservicesFiles = append $appservicesFiles (printf "/secrets/%s"
+                (include "element-io.ess-library.init-secret-path" (
+                      dict "root" $root
+                      "context" (dict
+                        "secretPath" "hookshot.appserviceRegistration"
+                        "initSecretKey" "HOOKSHOT_REGISTRATION"
+                        "defaultSecretName" (include "element-io.hookshot.secret-name" (dict "root" $root "context"  (dict "isHook" $isHook)))
+                        "defaultSecretKey" "REGISTRATION"
+                      )
+                    ))) -}}
+{{- end -}}
+{{- $appservicesFiles | toJson -}}
+{{- end }}
+{{- end }}
+
 
 {{- define "element-io.synapse.render-config-container" -}}
 {{- $root := .root -}}
@@ -258,6 +280,7 @@ ess-version.json: |
                   "resources" .resources
                   "containersSecurityContext" .containersSecurityContext
                   "extraEnv" .extraEnv
+                  "extraVolumeMounts" .extraVolumeMounts
                   "isHook" $isHook)) }}
 {{- end }}
 {{- end }}

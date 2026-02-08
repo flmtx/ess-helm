@@ -1,6 +1,6 @@
 {#
 Copyright 2024-2025 New Vector Ltd
-Copyright 2025 Element Creations Ltd
+Copyright 2025-2026 Element Creations Ltd
 
 SPDX-License-Identifier: AGPL-3.0-only
 #}
@@ -85,7 +85,10 @@ logging:
   ## levelOverrides:
   ##   synapse.util.caches.lrucache: WARNING
   levelOverrides: {}
-{{- sub_schema_values.image(registry='oci.element.io', repository='synapse', tag='v1.144.0-ess.2') }}
+{{- sub_schema_values.image(registry='oci.element.io', repository='synapse', tag='v1.146.0-ess.1') }}
+{{- sub_schema_values.extraVolumes("Synapse", with_context=true) }}
+{{- sub_schema_values.extraVolumeMounts("Synapse", with_context=true) }}
+{{- sub_schema_values.extraInitContainers("Synapse") }}
 {{- sub_schema_values.ingress() }}
 {{- sub_schema_values.labels() }}
 {{- sub_schema_values.workloadAnnotations() }}
@@ -105,19 +108,3 @@ logging:
 
 ## Extra command line arguments to provide to Synapse
 extraArgs: []
-
-redis:
-{{- sub_schema_values.image(registry='docker.io', repository='library/redis', tag='7.4-alpine') | indent(2) }}
-{{- sub_schema_values.labels() | indent(2) }}
-{{- sub_schema_values.workloadAnnotations() | indent(2) }}
-{{- sub_schema_values.containersSecurityContext() | indent(2) }}
-{{- sub_schema_values.extraEnv() | indent(2) }}
-{{- sub_schema_values.nodeSelector() | indent(2) }}
-{{- sub_schema_values.podSecurityContext(user_id='10002', group_id='10002') | indent(2) }}
-{{- sub_schema_values.resources(requests_memory='50Mi', requests_cpu='50m', limits_memory='50Mi') | indent(2) }}
-{{- sub_schema_values.serviceAccount() | indent(2) }}
-{{- sub_schema_values.tolerations() | indent(2) }}
-{{- sub_schema_values.topologySpreadConstraints() | indent(2) }}
-{{- sub_schema_values.probe("liveness") | indent(2) }}
-{{- sub_schema_values.probe("readiness") | indent(2) }}
-{{- sub_schema_values.probe("startup", failureThreshold=5) | indent(2) }}

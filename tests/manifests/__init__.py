@@ -1,5 +1,5 @@
 # Copyright 2024-2025 New Vector Ltd
-# Copyright 2025 Element Creations Ltd
+# Copyright 2025-2026 Element Creations Ltd
 #
 # SPDX-License-Identifier: AGPL-3.0-only
 
@@ -13,9 +13,11 @@ class PropertyType(Enum):
     AdditionalConfig = "additional"
     Enabled = "enabled"
     Env = "extraEnv"
+    ExposedServices = "exposedServices"
     HostAliases = "hostAliases"
     Image = "image"
     Ingress = "ingress"
+    InitContainers = "extraInitContainers"
     Labels = "labels"
     LivenessProbe = "livenessProbe"
     NodeSelector = "nodeSelector"
@@ -30,6 +32,8 @@ class PropertyType(Enum):
     Storage = "storage"
     Tolerations = "tolerations"
     TopologySpreadConstraints = "topologySpreadConstraints"
+    Volumes = "extraVolumes"
+    VolumeMounts = "extraVolumeMounts"
 
 
 @dataclass
@@ -98,16 +102,17 @@ class DeployableDetails(abc.ABC):
 
     has_additional_config: bool = field(default=None, hash=False)  # type: ignore[assignment]
     has_db: bool = field(default=False, hash=False)
+    has_exposed_services: bool = field(default=False, hash=False)
     has_image: bool = field(default=None, hash=False)  # type: ignore[assignment]
     has_ingress: bool = field(default=True, hash=False)
     has_automount_service_account_token: bool = field(default=False, hash=False)
     has_workloads: bool = field(default=True, hash=False)
     has_replicas: bool = field(default=None, hash=False)  # type: ignore[assignment]
-    requires_one_by_one_rollout: bool = field(default=False, hash=False)
     has_service_monitor: bool = field(default=None, hash=False)  # type: ignore[assignment]
     has_storage: bool = field(default=False, hash=False)
     makes_outbound_requests: bool = field(default=None, hash=False)  # type: ignore[assignment]
     is_hook: bool = field(default=False, hash=False)
+    has_mount_context: bool = field(default=None, hash=False)  # type: ignore[assignment]
     is_synapse_process: bool = field(default=False, hash=False)
 
     # Use this to skip mounts point we expect not to be referenced in commands, configs, etc
@@ -137,6 +142,8 @@ class DeployableDetails(abc.ABC):
             self.has_replicas = self.has_workloads
         if self.makes_outbound_requests is None:
             self.makes_outbound_requests = self.has_workloads
+        if self.has_mount_context is None:
+            self.has_mount_context = self.is_hook
 
     def _get_values_file_path(self, propertyType: PropertyType) -> ValuesFilePath:
         """
@@ -232,11 +239,13 @@ class SidecarDetails(DeployableDetails):
 
         sidecar_values_file_path_overrides = {
             # Not possible, will come from the parent component
+            PropertyType.InitContainers: ValuesFilePath.not_supported(),
             PropertyType.NodeSelector: ValuesFilePath.not_supported(),
             PropertyType.PodSecurityContext: ValuesFilePath.not_supported(),
             PropertyType.ServiceAccount: ValuesFilePath.not_supported(),
             PropertyType.Tolerations: ValuesFilePath.not_supported(),
             PropertyType.TopologySpreadConstraints: ValuesFilePath.not_supported(),
+            PropertyType.Volumes: ValuesFilePath.not_supported(),
         }
         if self.values_file_path_overrides is None:
             self.values_file_path_overrides = {}
@@ -359,6 +368,7 @@ def make_synapse_worker_sub_component(worker_name: str, worker_type: str) -> Sub
         PropertyType.Env: ValuesFilePath.read_elsewhere("synapse", "extraEnv"),
         PropertyType.HostAliases: ValuesFilePath.read_elsewhere("synapse", "hostAliases"),
         PropertyType.Image: ValuesFilePath.read_elsewhere("synapse", "image"),
+        PropertyType.InitContainers: ValuesFilePath.read_elsewhere("synapse", "extraInitContainers"),
         PropertyType.Labels: ValuesFilePath.read_elsewhere("synapse", "labels"),
         PropertyType.NodeSelector: ValuesFilePath.read_elsewhere("synapse", "nodeSelector"),
         PropertyType.PodSecurityContext: ValuesFilePath.read_elsewhere("synapse", "podSecurityContext"),
@@ -366,6 +376,8 @@ def make_synapse_worker_sub_component(worker_name: str, worker_type: str) -> Sub
         PropertyType.ServiceMonitor: ValuesFilePath.read_elsewhere("synapse", "serviceMonitor"),
         PropertyType.Tolerations: ValuesFilePath.read_elsewhere("synapse", "tolerations"),
         PropertyType.TopologySpreadConstraints: ValuesFilePath.read_elsewhere("synapse", "topologySpreadConstraints"),
+        PropertyType.Volumes: ValuesFilePath.read_elsewhere("synapse", "extraVolumes"),
+        PropertyType.VolumeMounts: ValuesFilePath.read_elsewhere("synapse", "extraVolumeMounts"),
     }
 
     return SubComponentDetails(
@@ -376,6 +388,7 @@ def make_synapse_worker_sub_component(worker_name: str, worker_type: str) -> Sub
         is_synapse_process=True,
         has_replicas=(worker_type == "scalable"),
         ignore_unreferenced_mounts={"synapse": ("/tmp",)},
+        has_mount_context=True,
         content_volumes_mapping={
             "/media": ("media_store",),
         },
@@ -432,6 +445,7 @@ all_components_details = [
         has_service_monitor=False,
         makes_outbound_requests=False,
         is_hook=True,
+        has_mount_context=False,
         is_shared_component=True,
     ),
     ComponentDetails(
@@ -453,6 +467,7 @@ all_components_details = [
         has_service_monitor=False,
         makes_outbound_requests=False,
         is_hook=True,
+        has_mount_context=False,
         is_shared_component=True,
     ),
     ComponentDetails(
@@ -500,6 +515,16 @@ all_components_details = [
         },
     ),
     ComponentDetails(
+        name="redis",
+        values_file_path=ValuesFilePath.read_write("redis"),
+        is_shared_component=True,
+        has_additional_config=False,
+        has_ingress=False,
+        has_service_monitor=False,
+        has_replicas=False,
+        makes_outbound_requests=False,
+    ),
+    ComponentDetails(
         name="matrix-rtc",
         values_file_path=ValuesFilePath.read_write("matrixRTC"),
         has_additional_config=False,
@@ -508,6 +533,7 @@ all_components_details = [
             SubComponentDetails(
                 name="matrix-rtc-sfu",
                 values_file_path=ValuesFilePath.read_write("matrixRTC", "sfu"),
+                has_exposed_services=True,
                 has_ingress=False,
                 has_replicas=False,
                 makes_outbound_requests=False,
@@ -558,9 +584,21 @@ all_components_details = [
         content_volumes_mapping={"/tmp": ("element-web-config",)},
     ),
     ComponentDetails(
+        name="hookshot",
+        has_storage=True,
+        has_replicas=False,
+        values_file_path_overrides={
+            PropertyType.Storage: ValuesFilePath.read_write("hookshot", "storage"),
+        },
+        values_file_path=ValuesFilePath.read_write("hookshot"),
+        ignore_paths_mismatches={
+            "hookshot": ("/bin/matrix-hookshot/App/BridgeApp.js",),
+        },
+        additional_values_files=("hookshot-encryption-enabled-values.yaml",),
+    ),
+    ComponentDetails(
         name="matrix-authentication-service",
         values_file_path=ValuesFilePath.read_write("matrixAuthenticationService"),
-        requires_one_by_one_rollout=True,
         has_db=True,
         sub_components=(
             SubComponentDetails(
@@ -604,6 +642,7 @@ all_components_details = [
                 has_replicas=False,
                 has_service_monitor=False,
                 is_hook=True,
+                has_mount_context=False,
                 makes_outbound_requests=False,
             ),
         ),
@@ -620,20 +659,12 @@ all_components_details = [
         additional_values_files=("synapse-worker-example-values.yaml",),
         skip_path_consistency_for_files=("path_map_file", "path_map_file_get"),
         ignore_unreferenced_mounts={"synapse": ("/tmp",)},
+        has_mount_context=True,
         content_volumes_mapping={
             "/media": ("media_store",),
         },
         sub_components=synapse_workers_details
         + (
-            SubComponentDetails(
-                name="synapse-redis",
-                values_file_path=ValuesFilePath.read_write("synapse", "redis"),
-                has_additional_config=False,
-                has_ingress=False,
-                has_service_monitor=False,
-                has_replicas=False,
-                makes_outbound_requests=False,
-            ),
             SubComponentDetails(
                 name="synapse-check-config",
                 values_file_path=ValuesFilePath.read_write("synapse", "checkConfigHook"),
@@ -641,6 +672,7 @@ all_components_details = [
                     PropertyType.AdditionalConfig: ValuesFilePath.read_elsewhere("synapse", "additional"),
                     PropertyType.Env: ValuesFilePath.read_elsewhere("synapse", "extraEnv"),
                     PropertyType.Image: ValuesFilePath.read_elsewhere("synapse", "image"),
+                    PropertyType.InitContainers: ValuesFilePath.read_elsewhere("synapse", "extraInitContainers"),
                     # Job so no livenessProbe
                     PropertyType.LivenessProbe: ValuesFilePath.not_supported(),
                     PropertyType.NodeSelector: ValuesFilePath.read_elsewhere("synapse", "nodeSelector"),
@@ -655,6 +687,8 @@ all_components_details = [
                     PropertyType.TopologySpreadConstraints: ValuesFilePath.read_elsewhere(
                         "synapse", "topologySpreadConstraints"
                     ),
+                    PropertyType.Volumes: ValuesFilePath.read_elsewhere("synapse", "extraVolumes"),
+                    PropertyType.VolumeMounts: ValuesFilePath.read_elsewhere("synapse", "extraVolumeMounts"),
                 },
                 has_ingress=False,
                 has_service_monitor=False,
@@ -698,6 +732,7 @@ _extra_values_files_to_test: list[str] = [
     "matrix-authentication-service-synapse-syn2mas-dry-run-secrets-externally-values.yaml",
     "matrix-authentication-service-synapse-syn2mas-migrate-secrets-in-helm-values.yaml",
     "matrix-authentication-service-synapse-syn2mas-migrate-secrets-externally-values.yaml",
+    "matrix-rtc-host-mode-values.yaml",
 ]
 
 _extra_secret_values_files_to_test = [
@@ -708,16 +743,18 @@ _extra_secret_values_files_to_test = [
 ]
 
 _extra_services_values_files_to_test = [
-    "matrix-rtc-exposed-services-values.yaml",
-    "matrix-rtc-host-mode-values.yaml",
+    "matrix-rtc-exposed-services-tls-values.yaml",
+    "matrix-rtc-exposed-services-cert-manager-values.yaml",
 ]
 
 secret_values_files_to_test = set(
     sum([component_details.secret_values_files for component_details in all_components_details], tuple())
 ) | set(_extra_secret_values_files_to_test)
 
-values_files_to_test = set(
-    sum([component_details.values_files for component_details in all_components_details], tuple())
-) | set(_extra_values_files_to_test)
+values_files_to_test = (
+    set(sum([component_details.values_files for component_details in all_components_details], tuple()))
+    | set(_extra_values_files_to_test)
+    | set(_extra_services_values_files_to_test)
+)
 
-services_values_files_to_test = values_files_to_test | set(_extra_services_values_files_to_test)
+services_values_files_to_test = set(_extra_services_values_files_to_test)

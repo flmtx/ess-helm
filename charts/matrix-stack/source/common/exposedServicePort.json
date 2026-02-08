@@ -9,11 +9,45 @@
     "enabled": {
       "type": "boolean"
     },
+    "annotations": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
     "portType": {
-      "type": "string"
+      "type": "string",
+      "enum": [
+        "NodePort",
+        "HostPort",
+        "LoadBalancer"
+      ]
+    },
+    "internalTrafficPolicy": {
+      "type": "string",
+      "enum": [
+        "Cluster",
+        "Local"
+      ]
+    },
+    "externalTrafficPolicy": {
+      "type": "string",
+      "enum": [
+        "Cluster",
+        "Local"
+      ]
     },
     "port": {
       "type": "number"
+    },
+    "nodePort": {
+      "type": "string"
+    },
+    "externalIPs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     }
   }
 }

@@ -1,6 +1,6 @@
 {#
 Copyright 2024-2025 New Vector Ltd
-Copyright 2025 Element Creations Ltd
+Copyright 2025-2026 Element Creations Ltd
 
 SPDX-License-Identifier: AGPL-3.0-only
 #}
@@ -34,6 +34,10 @@ haproxy:
   {% macro haproxyValues() %}{% include 'haproxy.yaml.j2'%}{% endmacro %}
   {{- haproxyValues() | trim | indent(2) }}
 
+hookshot:
+  {% macro hookshotValues() %}{% include 'hookshot.yaml.j2'%}{% endmacro %}
+  {{- hookshotValues() | trim | indent(2) }}
+
 matrixAuthenticationService:
   {% macro matrixAuthenticationServiceValues() %}{% include 'matrixAuthenticationService.yaml.j2'%}{% endmacro %}
   {{- matrixAuthenticationServiceValues() | trim | indent(2) }}
@@ -41,6 +45,10 @@ matrixAuthenticationService:
 postgres:
   {% macro postgresValues() %}{% include 'postgres.yaml.j2'%}{% endmacro %}
   {{- postgresValues() | trim | indent(2) }}
+
+redis:
+  {% macro redisValues() %}{% include 'redis.yaml.j2'%}{% endmacro %}
+  {{- redisValues() | trim | indent(2) }}
 
 synapse:
   {% macro synapseValues() %}{% include 'synapse.yaml.j2'%}{% endmacro %}

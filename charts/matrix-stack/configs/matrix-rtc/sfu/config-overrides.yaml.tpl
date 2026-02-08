@@ -1,6 +1,6 @@
 {{- /*
 Copyright 2024-2025 New Vector Ltd
-Copyright 2025 Element Creations Ltd
+Copyright 2025-2026 Element Creations Ltd
 
 SPDX-License-Identifier: AGPL-3.0-only
 */ -}}
@@ -58,6 +58,24 @@ key_file: /secrets/{{ (printf "/secrets/%s"
         ))) }}
 {{- else }}
 key_file: /conf/keys.yaml
+{{- end }}
+
+{{- if or .exposedServices.turnTLS.enabled .exposedServices.turn.enabled }}
+turn:
+  enabled: true
+{{- with .exposedServices.turnTLS }}
+{{ if .enabled }}
+  tls_port: {{ .port }}
+  domain: {{ tpl .domain $root }}
+  cert_file: /turn-tls/tls.crt
+  key_file: /turn-tls/tls.key
+{{- end }}
+{{- end }}
+{{- with .exposedServices.turn }}
+{{ if .enabled }}
+  udp_port: {{ .port }}
+{{- end }}
+{{- end }}
 {{- end }}
 
 room:

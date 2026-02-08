@@ -53,6 +53,15 @@
     "extraEnv": {
       "$ref": "file://common/extraEnv.json"
     },
+    "extraVolumes": {
+      "$ref": "file://common/extraVolumes.json"
+    },
+    "extraVolumeMounts": {
+      "$ref": "file://common/extraVolumeMounts.json"
+    },
+    "extraInitContainers": {
+      "$ref": "file://common/extraInitContainers.json"
+    },
     "image": {
       "$ref": "file://common/image.json"
     },
@@ -116,6 +125,15 @@
         "extraEnv": {
           "$ref": "file://common/extraEnv.json"
         },
+        "extraVolumes": {
+          "$ref": "file://common/extraVolumes.json"
+        },
+        "extraVolumeMounts": {
+          "$ref": "file://common/extraVolumeMounts.json"
+        },
+        "extraInitContainers": {
+          "$ref": "file://common/extraInitContainers.json"
+        },
         "annotations": {
           "$ref": "file://common/workloadAnnotations.json"
         },
@@ -168,6 +186,12 @@
             },
             "rtcUdp": {
               "$ref": "file://common/exposedServicePortRange.json"
+            },
+            "turnTLS": {
+              "$ref": "file://common/exposedServicePortWithTLS.json"
+            },
+            "turn": {
+              "$ref": "file://common/exposedServicePort.json"
             }
           }
         },

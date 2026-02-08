@@ -1,5 +1,5 @@
 # Copyright 2024-2025 New Vector Ltd
-# Copyright 2025 Element Creations Ltd
+# Copyright 2025-2026 Element Creations Ltd
 #
 # SPDX-License-Identifier: AGPL-3.0-only
 
@@ -63,8 +63,14 @@ def base_values() -> dict[str, Any]:
 
 @pytest.fixture
 def values(values_file) -> dict[str, Any]:
+    if (Path("charts/matrix-stack/ci") / values_file).exists():
+        values_file_path = Path("charts/matrix-stack/ci") / values_file
+    elif (Path("charts/matrix-stack/ci_extra") / values_file).exists():
+        values_file_path = Path("charts/matrix-stack/ci_extra") / values_file
+    else:
+        raise FileNotFoundError(f"Could not find {values_file} in charts/matrix-stack")
     if values_file not in values_cache:
-        v = yaml.safe_load((Path("charts/matrix-stack/ci") / values_file).read_text("utf-8"))
+        v = yaml.safe_load((values_file_path).read_text("utf-8"))
         for default_enabled_component in [
             "elementAdmin",
             "elementWeb",
@@ -92,6 +98,11 @@ async def templates(chart: pyhelm3.Chart, release_name: str, namespace: str, val
 @pytest.fixture
 def other_secrets(release_name, values, templates):
     return list(generated_secrets(release_name, values, templates)) + list(external_secrets(release_name, values))
+
+
+@pytest.fixture
+def other_configmaps(release_name, values):
+    return list(external_configmaps(release_name, values))
 
 
 def generated_secrets(release_name: str, values: dict[str, Any], helm_generated_templates: list[Any]) -> Iterator[Any]:
@@ -160,8 +171,20 @@ def external_secrets(release_name, values):
                 elif isinstance(value, list):
                     yield from find_credential(value)
 
+    def find_tlsSecret(values_fragment):
+        if isinstance(values_fragment, (dict, list)):
+            for k, v in values_fragment.items() if isinstance(values_fragment, dict) else values_fragment:
+                if k == "tlsSecret":
+                    yield v.replace("{{ $.Release.Name }}", release_name), "tls.crt"
+                    yield v.replace("{{ $.Release.Name }}", release_name), "tls.key"
+                elif isinstance(v, (dict, list)):
+                    yield from find_tlsSecret(v)
+
     external_secrets_to_keys = {}
     for secret_name, secretKey in find_credential(values):
+        external_secrets_to_keys.setdefault(secret_name, []).append(secretKey)
+
+    for secret_name, secretKey in find_tlsSecret(values):
         external_secrets_to_keys.setdefault(secret_name, []).append(secretKey)
 
     for secret_name, secret_keys in external_secrets_to_keys.items():
@@ -186,11 +209,41 @@ def external_secrets(release_name, values):
         }
 
 
+def external_configmaps(release_name, values):
+    def find_extra_configmaps(values_fragment):
+        if isinstance(values_fragment, (dict, list)):
+            for value in values_fragment.values() if isinstance(values_fragment, dict) else values_fragment:
+                if isinstance(value, dict):
+                    if "extraVolumes" in value:
+                        for vol in value["extraVolumes"]:
+                            if "configMap" in vol:
+                                yield vol["configMap"]["name"].replace("{{ $.Release.Name }}", release_name)
+                elif isinstance(value, list):
+                    yield from find_extra_configmaps(value)
+
+    for cm_name in find_extra_configmaps(values):
+        yield {
+            "kind": "ConfigMap",
+            "metadata": {
+                "name": cm_name,
+                "annotations": {
+                    # We simulate the fact that it exists before the chart deployment
+                    # using the hook weight.
+                    # Actually it does not have any
+                    # but this is necessary for tests/manifests/test_configs_and_mounts_consistency.py
+                    "helm.sh/hook-weight": "-100"
+                },
+            },
+            "data": {},
+        }
+
+
 async def helm_template(
     chart: pyhelm3.Chart,
     release_name: str,
     namespace: str,
     values: Any | None,
+    has_cert_manager_crd=True,
     has_service_monitor_crd=True,
     skip_cache=False,
 ) -> list[Any]:
@@ -202,6 +255,9 @@ async def helm_template(
     additional_apis: list[str] = []
     if has_service_monitor_crd:
         additional_apis.append("monitoring.coreos.com/v1/ServiceMonitor")
+
+    if has_cert_manager_crd:
+        additional_apis.append("cert-manager.io/v1/Certificate")
 
     additional_apis_args = [arg for additional_api in additional_apis for arg in ["-a", additional_api]]
     command = [
@@ -238,8 +294,10 @@ async def helm_template(
 
 @pytest.fixture
 def make_templates(chart: pyhelm3.Chart, release_name: str, namespace: str):
-    async def _make_templates(values, has_service_monitor_crd=True, skip_cache=False):
-        return await helm_template(chart, release_name, namespace, values, has_service_monitor_crd, skip_cache)
+    async def _make_templates(values, has_cert_manager_crd=True, has_service_monitor_crd=True, skip_cache=False):
+        return await helm_template(
+            chart, release_name, namespace, values, has_cert_manager_crd, has_service_monitor_crd, skip_cache
+        )
 
     return _make_templates
 

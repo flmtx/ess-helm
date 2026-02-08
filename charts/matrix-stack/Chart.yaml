@@ -1,11 +1,11 @@
 # Copyright 2024-2025 New Vector Ltd
-# Copyright 2025 Element Creations Ltd
+# Copyright 2025-2026 Element Creations Ltd
 #
 # SPDX-License-Identifier: AGPL-3.0-only
 
 apiVersion: v2
 name: matrix-stack
-version: 25.12.3-dev
+version: 26.2.1-dev
 kubeVersion: '>= 1.22.0-0'
 description: A Helm chart for deploying a Matrix Stack from Element
 type: application

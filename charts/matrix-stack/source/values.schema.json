@@ -21,7 +21,28 @@
         "issuer": {
           "type": "string"
         }
-      }
+      },
+      "maxProperties": 1,
+      "anyOf": [
+        {
+          "required": [
+            "clusterIssuer"
+          ]
+        },
+        {
+          "required": [
+            "issuer"
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "clusterIssuer",
+              "issuer"
+            ]
+          }
+        }
+      ]
     },
     "matrixTools": {
       "type": "object",
@@ -98,11 +119,17 @@
     "haproxy": {
       "$ref": "file://haproxy.json"
     },
+    "hookshot": {
+      "$ref": "file://hookshot.json"
+    },
     "matrixAuthenticationService": {
       "$ref": "file://matrixAuthenticationService.json"
     },
     "postgres": {
       "$ref": "file://postgres.json"
+    },
+    "redis": {
+      "$ref": "file://redis.json"
     },
     "synapse": {
       "$ref": "file://synapse.json"

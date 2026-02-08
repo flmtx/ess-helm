@@ -1,0 +1,44 @@
+{{- /*
+Copyright 2024 New Vector Ltd
+Copyright 2026 Element Creations Ltd
+
+SPDX-License-Identifier: AGPL-3.0-only
+*/ -}}
+
+{{- with $.Values.matrixRTC -}}
+{{- if .enabled -}}
+{{- with .sfu -}}
+{{- if and .enabled .exposedServices.turnTLS.enabled (ne .exposedServices.turnTLS.portType "HostPort") -}}
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    {{- include "element-io.matrix-rtc-sfu.labels" (dict "root" $ "context" (mustMergeOverwrite (dict "suffix" "-turn-tls") .)) | nindent 4 }}
+  {{- with .exposedServices.turnTLS.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  name: {{ $.Release.Name }}-matrix-rtc-sfu-turn-tls
+  namespace: {{ $.Release.Namespace }}
+spec:
+  type: {{ .exposedServices.turnTLS.portType }}
+  ipFamilyPolicy: PreferDualStack
+  {{- if hasKey .exposedServices.turnTLS "externalIPs" }}
+  externalIPs: {{ .exposedServices.turnTLS.externalIPs | toYaml | nindent 4 }}
+  {{- end }}
+  internalTrafficPolicy: {{ .exposedServices.turnTLS.internalTrafficPolicy }}
+  externalTrafficPolicy: {{ .exposedServices.turnTLS.externalTrafficPolicy }}
+  ports:
+  - name: "turn-tls-tcp"
+    protocol: "TCP"
+    port: {{ .exposedServices.turnTLS.port }}
+    targetPort: {{ .exposedServices.turnTLS.port }}
+    {{- with .exposedServices.turnTLS.nodePort }}
+    nodePort: {{ tpl . (dict "context" $.Values.matrixRTC.sfu.exposedServices.turnTLS "root" $) }}
+    {{- end }}
+  selector:
+    app.kubernetes.io/instance: "{{ $.Release.Name }}-matrix-rtc-sfu"
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

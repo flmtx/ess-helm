@@ -1,6 +1,6 @@
 <!--
 Copyright 2024-2025 New Vector Ltd
-Copyright 2025 Element Creations Ltd
+Copyright 2025-2026 Element Creations Ltd
 
 SPDX-License-Identifier: AGPL-3.0-only
 -->
@@ -21,8 +21,6 @@ SPDX-License-Identifier: AGPL-3.0-only
 </picture>
 </p>
 <!-- cSpell:enable -->
-
-<h1 align="center">Element Server Suite Community</h1>
 
 <p align="center">
 <b>The official Matrix stack from Element for non-commercial use</b>
@@ -51,13 +49,13 @@ Find below an overview of the most important additional product capabilities for
     - More efficient and cloud-native Synapse subsystems (for running individual large hosts)
   - Dynamic and automatic scaling with adaptation to actual load (horizontal and vertical)
   - In-cluster high availability (HA)
-  - Improved end-user experience due to better stability under load
+  - Improved end-user experience due to better stability and resilience under load
 - Application-level firewall with federation controls and more (Secure Border Gateway)
 - User lifecycle management and group access control via LDAP/SCIM (Advanced IAM)
 - Malware scanning of media attachments (Content Scanner)
-- Auditing capabilities (AuditBot)
-- Moderation and central control (AdminBot)
-- LDAP and SSO support for user authentication
+- Auditing (AuditBot)
+- Supervision and central control (AdminBot)
+- LDAP support for user authentication
 - S3 support for media storage
 - Distroless/minimal images of all relevant core components
 
@@ -113,6 +111,7 @@ ESS Community comes with the following components out-of-the box:
 - [Element Call's Matrix RTC Backend](https://github.com/element-hq/element-call/tree/livekit): Allows to use Element Call from Element X and Element Web apps.
 - [Element Web](https://github.com/element-hq/element-web): The Matrix Web Client provided by Element.
 - [Element Admin](https://github.com/element-hq/element-admin): The Admin Console provided by Element.
+- [Hookshot](https://github.com/matrix-org/hookshot): A Matrix bot for connecting to external services like GitHub, GitLab, JIRA, and more.
 - PostgreSQL: An optional packaged PostgreSQL server that allows you to quickly set up the stack out-of-the-box. For a better long-term experience, please consider using a dedicated PostgreSQL server. See the [advanced setup docs](./docs/advanced.md) for more information.
 - HAProxy: Provides the routing to Synapse processes.
 - .well-known delegation: Required for federation and Matrix clients.

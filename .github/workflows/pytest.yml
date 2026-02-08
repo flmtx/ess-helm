@@ -1,5 +1,5 @@
 # Copyright 2024-2025 New Vector Ltd
-# Copyright 2025 Element Creations Ltd
+# Copyright 2025-2026 Element Creations Ltd
 #
 # SPDX-License-Identifier: AGPL-3.0-only
 
@@ -34,7 +34,7 @@ jobs:
       manifestTests: ${{ steps.data.outputs.manifestTests }}
       upgradeFrom: ${{ steps.data.outputs.upgradeFrom }}
     steps:
-    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
       with:
         fetch-depth: 0
         fetch-tags: true
@@ -59,7 +59,7 @@ jobs:
       MATRIX_TEST_COMPONENT: ${{ matrix.test-component }}
       MATRIX_TEST_FROM_REF: ${{ matrix.test-from-ref }}
     steps:
-    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
       with:
         fetch-depth: 0
         fetch-tags: true
@@ -73,7 +73,7 @@ jobs:
         echo "$(poetry env info -p)/bin" >> "${GITHUB_PATH}"
 
     - name: Login to Dockerhub
-      uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef  # v3
+      uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9  # v3
       if: ${{ github.event.pull_request.head.repo.full_name == 'element-hq/ess-helm' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
       with:
         registry: docker.io
@@ -94,6 +94,8 @@ jobs:
       if: ${{ matrix.test-from-ref != github.event.pull_request.head.sha }}
 
     - name: Deploy with pytest once
+      env:
+        PYTEST_CI_FIRST_STEP: "1"
       run: |
         if [ -f "tests/integration/env/${MATRIX_TEST_COMPONENT}.rc" ]; then
           # shellcheck source=/dev/null
@@ -113,6 +115,8 @@ jobs:
       if: ${{ matrix.test-from-ref != github.event.pull_request.head.sha }}
 
     - name: Test with pytest (upgrade or idempotent setup)
+      env:
+        PYTEST_CI_SECOND_STEP: "1"
       run: |
         # shellcheck source=/dev/null
         . "tests/integration/env/${MATRIX_TEST_COMPONENT}.rc"
@@ -132,15 +136,14 @@ jobs:
             kubectl --context k3d-ess-helm -n "$ns" logs --all-containers --prefix --timestamps --ignore-errors --previous "$pod" > "./ess-helm-logs/$ns/$pod.previous"
             kubectl --context k3d-ess-helm -n "$ns" logs --all-containers --prefix --timestamps --ignore-errors "$pod" > "./ess-helm-logs/$ns/$pod.logs"
           done
+          resources=("pods" "deployments" "statefulsets" "services" "configmaps" "ingresses" "persistentvolumes" "persistentvolumeclaims" "endpoints")
+          for i in "${resources[@]}"; do
+            kubectl --context k3d-ess-helm get "$i" -n "$ns" > "./ess-helm-logs/$ns/$i.txt"
+            echo "----" >> "./ess-helm-logs/$ns/$i.txt"
+            kubectl --context k3d-ess-helm get "$i" -o yaml -n "$ns" >> "./ess-helm-logs/$ns/$i.txt"
+          done
+          kubectl --context k3d-ess-helm get events --sort-by=.metadata.creationTimestamp -n "$ns" > "./ess-helm-logs/$ns/events.txt"
         done
-        ess_ns=$(kubectl --context k3d-ess-helm get ns -l app.kubernetes.io/managed-by=pytest -o jsonpath='{.items[].metadata.name}')
-        resources=("pods" "deployments" "statefulsets" "services" "configmaps" "ingresses" "persistentvolumes" "persistentvolumeclaims" "endpoints")
-        for i in "${resources[@]}"; do
-          kubectl --context k3d-ess-helm get "$i" -n "$ess_ns" > "./ess-helm-logs/$i.txt"
-          echo "----" >> "./ess-helm-logs/$i.txt"
-          kubectl --context k3d-ess-helm get "$i" -o yaml -n "$ess_ns" >> "./ess-helm-logs/$i.txt"
-        done
-        kubectl --context k3d-ess-helm get events --sort-by=.metadata.creationTimestamp -n "$ess_ns" > ./ess-helm-logs/events.txt
         k3d cluster delete ess-helm
 
     - name: Upload logs
@@ -160,7 +163,7 @@ jobs:
         manifest-test: ${{ fromJSON(needs.pytest-setup.outputs.manifestTests).manifestTests }}
     steps:
     - name: Checkout
-      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
 
     - uses: matrix-org/setup-python-poetry@5bbf6603c5c930615ec8a29f1b5d7d258d905aa4  # v2
       with:
@@ -169,6 +172,14 @@ jobs:
     - name: Load poetry path
       run: |
         echo "$(poetry env info -p)/bin" >> "${GITHUB_PATH}"
+
+    # Helm >= 3.19.5 (including Helm v4) have https://github.com/helm/helm/issues/31643
+    # which breaks one of the Ingress tests
+    - name: Pin Helm with asdf
+      uses: asdf-vm/actions/install@b7bcd026f18772e44fe1026d729e1611cc435d47  # v4
+      with:
+        tool_versions: |
+          helm 3.19.4
 
     - name: Run our manifest test
       run: poetry run pytest -vv tests/manifests/${{ matrix.manifest-test }}.py
